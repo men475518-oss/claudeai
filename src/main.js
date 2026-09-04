@@ -10,7 +10,8 @@ import { initAudio, sfx, playMusic, stopMusic, toggleMute, isMuted, resumeAudio,
 import * as R from './render.js';
 import * as FX from './fx.js';
 import * as UIx from './ui.js';
-import { generateOverworld, layoutTown, applyBuildings, O, OBJ_DEF, BUILDINGS, TERRAIN_NAME } from './world.js';
+import { applyBuildings, O, OBJ_DEF, BUILDINGS } from './world.js';
+import { generateRoomWorld, buildRoomLevel, OPP, DV } from './rooms.js';
 import { generateDungeon } from './dungeon.js';
 import { Player, Enemy, Pickup, Projectile, Npc, Bomb } from './entities.js';
 import { hasSave, saveGame, loadSaveData, applySave, deleteSave } from './save.js';
@@ -32,8 +33,11 @@ const g = {
   state: 'title',           // title | play | gameover | ending
   stateT: 0,
   playTime: 0,
-  level: null, levelId: 'field',
-  overworld: null,
+  level: null, levelId: '',
+  world: null,              // 島のグラフ
+  roomId: '',               // いまいる島
+  rooms: {},                // id -> 組み立てた島
+  pendingRoom: null,
   dungeons: {},             // id -> 生成結果
   player: null,
   enemies: [], pickups: [], projectiles: [], npcs: [], bombs: [],
@@ -103,7 +107,7 @@ g.blastTiles = function (px, py, r = 2) {
 /** 巨大ボスを倒したとき：遺物があらわれ、門がひらく */
 g.onGiantBossDefeated = function (boss) {
   const dgId = g.levelId.replace(ARENA_SUFFIX, '');
-  const def = g.overworld.dungeons.find(d => d.id === dgId);
+  const def = g.world.dungeons.find(d => d.id === dgId);
   if (def) def.cleared = true;
   const ar = g.arenas[g.levelId];
   g.kills++;
@@ -122,7 +126,7 @@ g.onGiantBossDefeated = function (boss) {
 g.onBossDefeated = function (boss) {
   const dg = g.dungeons[g.levelId];
   if (!dg) return;
-  const def = g.overworld.dungeons.find(d => d.id === g.levelId);
+  const def = g.world.dungeons.find(d => d.id === g.levelId);
   if (def && !def.cleared) {
     def.cleared = true;
     g.level.setO(dg.relicPos.x, dg.relicPos.y, O.RELIC);
@@ -175,21 +179,22 @@ function onResize() {
 // ---------------------------------------------------------------------------
 function newGame(seed) {
   g.seed = seed >>> 0;
-  g.overworld = generateOverworld(g.seed);
-  const ow = g.overworld;
-  ow.level.buildings = layoutTown(ow.level, ow.townX, ow.townY);
+  g.world = generateRoomWorld(g.seed);
+  g.rooms = {};
+  g.dungeons = {};
+  g.arenas = {};
   g.openedChests = new Set();
   g.rescued = 0; g.kills = 0; g.gateOpen = false; g.won = false;
   g.playTime = 0;
-  g.player = new Player(ow.townX * TILE + 8, (ow.townY + 3) * TILE + 8);
-  enterLevel('field', g.player.x, g.player.y, false);
+  g.player = new Player(0, 0);
+  enterRoom(g.world.startId, null, false);
   g.state = 'play'; g.stateT = 0;
   UIx.invalidateMap();
   UIx.openDialog({
     speaker: '　',
     text: [...Story.INTRO, ...Story.INTRO_HOWTO],
     onDone: () => {
-      UIx.toast('目標：とらわれた村人を さがす', '右上のマップで 行き先が わかる');
+      UIx.toast('目標：とらわれた村人を さがす', '右上のマップで 島のつながりが 見られる');
       UIx.hint('画面を ドラッグ すると 歩きます。\nその場を タップ すると 斬ります。', 8);
     },
   });
@@ -199,19 +204,41 @@ function continueGame() {
   const d = loadSaveData();
   if (!d) { newGame((Math.random() * 1e9) | 0); return; }
   g.seed = d.seed >>> 0;
-  g.overworld = generateOverworld(g.seed);
-  const ow = g.overworld;
-  ow.level.buildings = layoutTown(ow.level, ow.townX, ow.townY);
-  g.player = new Player(ow.townX * TILE + 8, (ow.townY + 3) * TILE + 8);
+  g.world = generateRoomWorld(g.seed);
+  g.rooms = {};
+  g.dungeons = {};
+  g.arenas = {};
+  g.player = new Player(0, 0);
   applySave(g, d);
-  applyBuildings(ow.level, ow.level.buildings);
-  // 開けた宝箱・救出済みの檻を反映
-  for (const c of ow.chests) if (g.openedChests.has(`field:${c.x},${c.y}`)) ow.level.setO(c.x, c.y, O.CHEST_OPEN);
-  for (const v of ow.villagers) if (v.freed && ow.level.o(v.x, v.y) === O.CAGE) ow.level.setO(v.x, v.y, O.NONE);
-  if (ow.gate && g.gateOpen) ow.level.setO(ow.gate.x, ow.gate.y, O.NONE);
-  enterLevel('field', g.player.x, g.player.y, false);
+  enterRoom(g.world.rooms.has(d.roomId) ? d.roomId : g.world.startId, null, false);
   g.state = 'play'; g.stateT = 0;
   UIx.invalidateMap();
+}
+
+// --- 島の出し入れ -----------------------------------------------------------
+
+export function currentRoom() { return g.world.rooms.get(g.roomId); }
+
+function roomBuild(roomId) {
+  let b = g.rooms[roomId];
+  if (!b) {
+    b = buildRoomLevel(g.world, g.world.rooms.get(roomId));
+    g.rooms[roomId] = b;
+  }
+  return b;
+}
+
+/** となりの島へ移る。from はあらたな島の「入ってくる側」 */
+function enterRoom(roomId, from = null, fade = true, pos = null) {
+  g.pendingRoom = { roomId, from, pos };
+  enterLevel('room:' + roomId, null, null, fade);
+}
+
+function travel(dir) {
+  const room = currentRoom();
+  const nid = room && room.exits[dir];
+  if (!nid) return;
+  enterRoom(nid, OPP[dir], true);
 }
 
 // ---------------------------------------------------------------------------
@@ -225,18 +252,45 @@ function enterLevel(id, px, py, fade = true) {
     clearBubbles();
     FX.clearFx();
 
-    if (id === 'field') {
-      g.level = g.overworld.level;
-      g.levelId = 'field';
-      if (px == null || py == null) {
-        const r = g.returnPos || { x: g.overworld.townX * TILE + 8, y: (g.overworld.townY + 3) * TILE + 8 };
-        px = r.x; py = r.y;
+    if (id.startsWith('room:')) {
+      const rid = id.slice(5);
+      const built = roomBuild(rid);
+      g.level = built.level;
+      g.levelId = id;
+      g.roomId = rid;
+      const room = g.world.rooms.get(rid);
+      room.visited = true;
+
+      if (built.buildings && built.buildings.length) applyBuildings(built.level, built.buildings);
+
+      // 立ち位置：入ってきた側の 小道から すこし内側へ
+      const pr = g.pendingRoom;
+      if (pr && pr.pos) { px = pr.pos.x; py = pr.pos.y; }
+      else if (pr && pr.from && built.gateways[pr.from]) {
+        const gw = built.gateways[pr.from];
+        const [dx, dy] = DV[pr.from];
+        px = (gw.x + 0.5 - dx * 2.0) * TILE;
+        py = (gw.y + 0.5 - dy * 2.0) * TILE;
+      } else if (px == null || py == null) {
+        px = built.center.x; py = built.center.y + 24;
       }
-      spawnTownNpcs();
+      g.pendingRoom = null;
+
+      // 敵は 島に入るたびに わいてくる
+      for (const m of built.mobs) g.spawnEnemy(m.x * TILE + 8, m.y * TILE + 8, m.kind, m.level);
+
+      // 済んだものを反映
+      const v = g.world.villagers.find(vv => vv.roomId === rid);
+      if (v && v.freed && built.spots.cage) built.level.setO(built.spots.cage.x, built.spots.cage.y, O.NONE);
+      if (built.spots.chest && g.openedChests.has(`${rid}:${built.spots.chest.x},${built.spots.chest.y}`))
+        built.level.setO(built.spots.chest.x, built.spots.chest.y, O.CHEST_OPEN);
+      if (built.spots.gate && g.gateOpen) built.level.setO(built.spots.gate.x, built.spots.gate.y, O.NONE);
+
+      spawnRoomNpcs(room, built);
     } else if (id.endsWith(ARENA_SUFFIX)) {
       // --- ボスの舞台 ---
       const dgId = id.slice(0, -ARENA_SUFFIX.length);
-      const def = g.overworld.dungeons.find(d => d.id === dgId);
+      const def = g.world.dungeons.find(d => d.id === dgId);
       let ar = g.arenas[id];
       if (!ar) {
         ar = generateArena({ id, name: def.name + ' ‧ 最奥', seed: def.seed, theme: def.theme });
@@ -258,7 +312,7 @@ function enterLevel(id, px, py, fade = true) {
       py = py ?? ar.spawn.y * TILE + 8;
     } else {
       let dg = g.dungeons[id];
-      const def = g.overworld.dungeons.find(d => d.id === id);
+      const def = g.world.dungeons.find(d => d.id === id);
       if (!dg) {
         dg = generateDungeon(def, 1);
         g.dungeons[id] = dg;
@@ -292,55 +346,51 @@ function enterLevel(id, px, py, fade = true) {
   sfx('door');
 }
 
-function spawnTownNpcs() {
-  const ow = g.overworld;
-  const built = ow.level.buildings.filter(b => b.built && b.id !== 'home');
+/** その島に立っている人たち */
+function spawnRoomNpcs(room, built) {
+  g.hatman = null;
+  // 建物の前の店主
   let i = 0;
-  for (const b of built) {
+  for (const b of (built.buildings || [])) {
+    if (!b.built || b.id === 'home') continue;
     g.npcs.push(new Npc(b.x * TILE + b.w * TILE / 2, (b.y + b.h) * TILE + 10, i + 2, {
-      name: b.name,
-      lines: Story.SHOP_TALK[b.id] || ['ようこそ。'],
+      name: b.name, lines: Story.SHOP_TALK[b.id] || ['ようこそ。'],
     }));
     i++;
   }
-  // 助けた村人は 広場を うろつく
-  const n = Math.min(g.rescued, 8);
-  for (let k = 0; k < n; k++) {
-    const a = (k / Math.max(1, n)) * Math.PI * 2;
-    g.npcs.push(new Npc(
-      ow.townX * TILE + 8 + Math.cos(a) * (34 + k * 4),
-      ow.townY * TILE + 8 + Math.sin(a) * (30 + k * 3),
-      k, { name: '村人', lines: [Story.VILLAGER_IDLE[k % Story.VILLAGER_IDLE.length]] }));
+  // 町には 助けた村人が うろついている
+  if (room.kind === 'town') {
+    const n = Math.min(g.rescued, 6);
+    const cx = built.w * TILE / 2, cy = built.h * TILE / 2;
+    for (let k = 0; k < n; k++) {
+      const a = (k / Math.max(1, n)) * Math.PI * 2;
+      g.npcs.push(new Npc(cx + Math.cos(a) * (30 + k * 5), cy + 34 + Math.sin(a) * (22 + k * 3), k,
+        { name: '村人', lines: [Story.VILLAGER_IDLE[k % Story.VILLAGER_IDLE.length]] }));
+    }
   }
-  // 帽子の人は いつも どこかに立っている
-  const spot = hatmanSpot();
-  const hat = new Npc(spot.x * TILE + 8, spot.y * TILE + 12, 0, {
-    name: '帽子の人', spr: 'hatman', static: true, bob: true, hatman: true, lines: [],
-  });
-  hat.data.hatman = true;
-  g.npcs.push(hat);
-  g.hatman = hat;
+  // 帽子の人
+  if (room.id === hatmanRoomId()) {
+    const hat = new Npc(built.center.x + 18, built.center.y - 26, 0, {
+      name: '帽子の人', spr: 'hatman', static: true, bob: true, hatman: true, lines: [],
+    });
+    hat.data.hatman = true;
+    g.npcs.push(hat);
+    g.hatman = hat;
+  }
 }
 
-/** 進み具合で 立ち位置が すこしずつ変わる */
-function hatmanSpot() {
-  const ow = g.overworld;
-  const cleared = ow.dungeons.filter(d => d.cleared).length;
-  const ring = 11 + cleared * 2;
-  const ang = -0.7 + cleared * 1.9;
-  let x = Math.round(ow.townX + Math.cos(ang) * ring);
-  let y = Math.round(ow.townY + Math.sin(ang) * ring);
-  for (let k = 0; k < 40 && ow.level.solid(x, y); k++) {
-    x = Math.round(ow.townX + Math.cos(ang + k * 0.3) * (ring + (k % 5)));
-    y = Math.round(ow.townY + Math.sin(ang + k * 0.3) * (ring + (k % 5)));
-  }
-  return { x, y };
+/** 帽子の人は 進み具合で 立つ島が変わる */
+function hatmanRoomId() {
+  const list = g.world.hatmanRooms;
+  if (!list || !list.length) return null;
+  const cleared = g.world.dungeons.filter(d => d.cleared).length;
+  const stage = g.won ? list.length - 1 : Math.min(list.length - 1, (g.player.relics >= 3 ? 3 : cleared));
+  return list[stage];
 }
 
 function nearTown() {
-  if (g.levelId !== 'field') return false;
-  const ow = g.overworld;
-  return dist(g.player.tx, g.player.ty, ow.townX, ow.townY) < 14;
+  const r = currentRoom();
+  return !!r && (r.kind === 'town' || r.kind === 'home');
 }
 
 // ---------------------------------------------------------------------------
@@ -604,9 +654,6 @@ function simulate(dt) {
   // --- 探索マーク ---
   g.level.markExplored(p.tx, p.ty, g.level.dark ? 4 : 8);
 
-  // --- 敵の湧き（フィールド）---
-  if (g.levelId === 'field') updateFieldSpawns(dt);
-
   // --- 遺物・出口など踏むと発生するもの ---
   checkTileTriggers();
 
@@ -617,10 +664,7 @@ function simulate(dt) {
   }
 
   // --- BGM 切り替え ---
-  if (g.levelId === 'field') {
-    const want = nearTown() ? 'town' : 'field';
-    playMusic(want);
-  }
+  if (g.levelId.startsWith('room:')) playMusic(nearTown() ? 'town' : 'field');
 }
 
 // ---------------------------------------------------------------------------
@@ -682,7 +726,7 @@ function damageObject(x, y, amount) {
 }
 
 function freeVillager(x, y) {
-  const v = g.overworld.villagers.find(v => v.x === x && v.y === y);
+  const v = g.world.villagers.find(v => v.roomId === g.roomId);
   if (!v || v.freed) return;
   v.freed = true;
   g.rescued++;
@@ -773,8 +817,10 @@ function doInteract(t) {
     }
     case 'building': openBuildingMenu(t.b); break;
     case 'sign': {
-      const s = g.overworld.signs.find(s => s.x === t.tx && s.y === t.ty);
-      sayQueue({ x: t.x, y: t.y + 6, dead: false }, [s ? s.text : 'なにも 書かれていない。'], { per: 3.6 });
+      const room = currentRoom();
+      const idx = room && room.content.sign != null ? room.content.sign : 0;
+      sayQueue({ x: t.x, y: t.y + 6, dead: false },
+        [Story.SIGNS[idx % Story.SIGNS.length]], { per: 3.6 });
       sfx('ui');
       break;
     }
@@ -782,17 +828,18 @@ function doInteract(t) {
     case 'vending': useVending(t); break;
     case 'shrine': useShrine(t); break;
     case 'cave': {
-      const d = g.overworld.dungeons.find(d => d.x === t.tx && d.y === t.ty);
+      const d = g.world.dungeons.find(d => d.roomId === g.roomId);
       if (!d) return;
       UIx.toast(d.name, d.cleared ? 'クリア済み' : 'なかへ 入る');
-      g.returnPos = { x: t.tx * TILE + 8, y: (t.ty + 1) * TILE + 10 };
+      g.returnRoomId = g.roomId;
+      g.returnPos = { x: t.tx * TILE + 8, y: (t.ty + 1) * TILE + 12 };
       enterLevel(d.id, null, null, true);
       break;
     }
-    case 'exit': enterLevel('field', null, null, true); break;
+    case 'exit': enterRoom(g.returnRoomId || g.world.startId, null, true, g.returnPos); break;
     case 'portal': {
       const dgId = g.levelId;
-      const def = g.overworld.dungeons.find(d => d.id === dgId);
+      const def = g.world.dungeons.find(d => d.id === dgId);
       if (!def) return;
       if (def.cleared) {
         UIx.openDialog({ speaker: '門', text: ['むこう側は もう しずかだ。'] });
@@ -848,7 +895,7 @@ function doInteract(t) {
       g.level.setO(t.tx, t.ty, O.NONE);
       p.relics++;
       if (g.levelId.endsWith(ARENA_SUFFIX)) {
-        const d = g.overworld.dungeons.find(dd => dd.id === g.levelId.replace(ARENA_SUFFIX, ''));
+        const d = g.world.dungeons.find(dd => dd.id === g.levelId.replace(ARENA_SUFFIX, ''));
         if (d) d.relicTaken = true;
       }
       sfx('relic'); FX.flash('#ffffff', 0.8);
@@ -858,7 +905,7 @@ function doInteract(t) {
       UIx.openDialog({
         speaker: '遺物', text: [`遺物を てにいれた。 (${p.relics}/3)`,
           p.relics >= 3 ? '三つ そろった。\n東の「古い門」へ。' : 'まだ 光が たりない。'],
-        onDone: () => { if (inArena) enterLevel('field', null, null, true); },
+        onDone: () => { if (inArena) enterRoom(g.returnRoomId || g.world.startId, null, true, g.returnPos); },
       });
       break;
     }
@@ -869,28 +916,32 @@ const DIRS8 = ['きた', 'きたひがし', 'ひがし', 'みなみひがし', '
 
 /** 祠：いちばん近い用事の方角を おしえてくれる */
 function useShrine(t) {
-  const ow = g.overworld;
+  const w = g.world;
   const p = g.player;
+  const here = currentRoom();
   const targets = [];
-  for (const v of ow.villagers) if (!v.freed) targets.push({ x: v.x, y: v.y, what: 'とらわれた だれか' });
-  for (const d of ow.dungeons) if (!d.cleared) targets.push({ x: d.x, y: d.y, what: d.name });
-  if (p.relics >= 3 && ow.gate) targets.push({ x: ow.gate.x, y: ow.gate.y, what: '古い門' });
+  for (const v of w.villagers) if (!v.freed) targets.push({ roomId: v.roomId, what: 'とらわれた だれか' });
+  for (const d of w.dungeons) if (!d.cleared) targets.push({ roomId: d.roomId, what: d.name });
+  if (p.relics >= 3) targets.push({ roomId: w.gateRoomId, what: '古い門' });
 
   let best = null, bd = Infinity;
   for (const tg of targets) {
-    const d = dist(tg.x, tg.y, p.tx, p.ty);
-    if (d < bd) { bd = d; best = tg; }
+    const r = w.rooms.get(tg.roomId);
+    if (!r) continue;
+    const d = Math.abs(r.gx - here.gx) + Math.abs(r.gy - here.gy);
+    if (d < bd) { bd = d; best = { ...tg, gx: r.gx, gy: r.gy, name: r.name }; }
   }
   sfx('magic');
   if (!best) {
     sayQueue({ x: t.x, y: t.y + 4, dead: false }, ['もう、さがすものは ないみたい。'], { per: 3 });
     return;
   }
-  const a = Math.atan2(best.y - p.ty, best.x - p.tx);
+  const a = Math.atan2(best.gy - here.gy, best.gx - here.gx);
   const idx = Math.round(((a + Math.PI / 2) / (Math.PI * 2)) * 8 + 8) % 8;
-  const far = bd < 14 ? 'すぐそこ' : bd < 34 ? 'すこし 歩く' : 'ずいぶん 遠い';
-  // 行き先をマップにも うつす
-  g.level.markExplored(best.x, best.y, 4);
+  const far = bd <= 1 ? 'すぐ となり' : bd <= 3 ? `島を ${bd} つ ぶん` : `ずいぶん 遠い（島 ${bd} つ）`;
+  // 行き先を マップに うつす
+  const tr = w.rooms.get(best.roomId);
+  if (tr) tr.known = true;
   UIx.invalidateMap();
   sayQueue({ x: t.x, y: t.y + 4, dead: false },
     [`${DIRS8[idx]} の ほうに\n「${best.what}」が ある。`, `${far}。\n気をつけて。`], { per: 3.2 });
@@ -939,9 +990,16 @@ function openChest(x, y) {
   FX.ring(x * TILE + 8, y * TILE + 6, { r0: 3, r1: 24, life: 0.4, color: PAL.t });
   FX.burst(x * TILE + 8, y * TILE + 4, 12, [PAL.t, PAL.s], { spMax: 70 });
 
-  const src = g.levelId === 'field' ? g.overworld.chests : (g.dungeons[g.levelId]?.chests || []);
-  const c = src.find(c => c.x === x && c.y === y);
-  const loot = c ? c.loot : 'coins';
+  let loot = 'coins';
+  if (g.levelId.startsWith('room:')) {
+    const room = currentRoom();
+    const h = ((room.seed % 100) / 100);
+    loot = h < 0.22 ? 'heart' : h < 0.5 ? 'coins' : h < 0.72 ? 'bomb' : h < 0.88 ? 'potion' : 'key';
+  } else {
+    const src = g.dungeons[g.levelId]?.chests || [];
+    const c = src.find(c => c.x === x && c.y === y);
+    loot = c ? c.loot : 'coins';
+  }
   const p = g.player;
   let msg = '';
   if (loot === 'key') { p.keys++; msg = 'カギ を てにいれた！'; }
@@ -963,6 +1021,16 @@ function checkTileTriggers() {
   const id = g.level.o(p.tx, p.ty);
   if (id === O.RELIC) {
     doInteract({ type: 'relic', tx: p.tx, ty: p.ty, x: p.tx * TILE + 8, y: p.ty * TILE });
+    return;
+  }
+  // 島のはしの小道に立つと となりへ
+  if (id === O.GATEWAY && g.levelId.startsWith('room:') && !g.transition) {
+    const built = g.rooms[g.roomId];
+    if (!built) return;
+    for (const d of ['n', 's', 'e', 'w']) {
+      const gw = built.gateways[d];
+      if (gw && gw.x === p.tx && gw.y === p.ty) { travel(d); return; }
+    }
   }
 }
 
@@ -997,43 +1065,6 @@ function useItem() {
 // ---------------------------------------------------------------------------
 // 敵の湧き（フィールド）
 // ---------------------------------------------------------------------------
-const FIELD_MOBS = {
-  grass: ['slime', 'wolf'], forest: ['slime', 'spore', 'wolf'], sand: ['slime', 'bat'],
-  marsh: ['spore', 'slime'], ash: ['skeleton', 'bat'], stone: ['bat', 'skeleton'], dirt: ['slime'],
-};
-
-function updateFieldSpawns(dt) {
-  const p = g.player;
-  const ow = g.overworld;
-  // 遠い敵を消す
-  for (let i = g.enemies.length - 1; i >= 0; i--) {
-    const e = g.enemies[i];
-    if (!e.boss && dist(e.x, e.y, p.x, p.y) > 460) g.enemies.splice(i, 1);
-  }
-  const townD = dist(p.tx, p.ty, ow.townX, ow.townY);
-  if (townD < 13) return;               // 村の近くは安全
-  const cap = clamp(3 + Math.floor(townD / 22), 3, 9);
-  if (g.enemies.length >= cap) return;
-  g.spawnTimer -= dt;
-  if (g.spawnTimer > 0) return;
-  g.spawnTimer = 0.7;
-
-  for (let k = 0; k < 24; k++) {
-    const a = Math.random() * Math.PI * 2;
-    const r = 130 + Math.random() * 120;
-    const x = Math.floor((p.x + Math.cos(a) * r) / TILE);
-    const y = Math.floor((p.y + Math.sin(a) * r) / TILE);
-    if (!g.level.inb(x, y) || g.level.solid(x, y)) continue;
-    if (dist(x, y, ow.townX, ow.townY) < 13) continue;
-    const name = TERRAIN_NAME[g.level.g(x, y)];
-    const pool = FIELD_MOBS[name];
-    if (!pool) continue;
-    const lvl = clamp(1 + Math.floor(dist(x, y, ow.townX, ow.townY) / 34), 1, 4);
-    g.spawnEnemy(x * TILE + 8, y * TILE + 8, pool[(Math.random() * pool.length) | 0], lvl);
-    break;
-  }
-}
-
 // ---------------------------------------------------------------------------
 // メニュー各種
 // ---------------------------------------------------------------------------
@@ -1108,7 +1139,7 @@ function openBuildingMenu(b) {
   const p = g.player;
   clearHeld();
   if (!b.built) {
-    const v = g.overworld.villagers.find(v => v.building === b.id);
+    const v = g.world.villagers.find(v => v.building === b.id);
     const unlocked = !v || v.freed;
     const canPay = p.coins >= b.cost;
     UIx.openMenu({
@@ -1124,8 +1155,8 @@ function openBuildingMenu(b) {
           action: () => {
             p.coins -= b.cost;
             b.built = true;
-            applyBuildings(g.overworld.level, g.overworld.level.buildings);
-            g.npcs.length = 0; spawnTownNpcs();
+            applyBuildings(g.level, g.level.buildings || []);
+            g.npcs.length = 0; spawnRoomNpcs(currentRoom(), g.rooms[g.roomId]);
             sfx('build');
             FX.shake(3, 0.4);
             FX.burst((b.x + b.w / 2) * TILE, (b.y + b.h) * TILE, 24, [PAL.f, PAL.g, PAL.d], { spMax: 90 });
@@ -1171,11 +1202,11 @@ function openHomeMenu(b) {
       {
         label: '村のようす', sub: `救った村人 ${g.rescued} 人 ・ 遺物 ${p.relics}/3`,
         action: () => {
-          const built = g.overworld.level.buildings.filter(x => x.built).length;
+          const built = g.world.buildings.filter(x => x.built).length;
           UIx.openDialog({
             speaker: '村の記録',
             text: [
-              `建物 ${built} / ${g.overworld.level.buildings.length}\n村人 ${g.rescued} 人\n遺物 ${p.relics} / 3`,
+              `建物 ${built} / ${g.world.buildings.length}\n村人 ${g.rescued} 人\n遺物 ${p.relics} / 3`,
               `たおした敵 ${g.kills}\nあそんだ時間 ${formatTime(g.playTime)}`,
             ],
           });
@@ -1347,10 +1378,10 @@ function openFarmMenu(b) {
 /** いまの目標（マップとメニューに出す） */
 g.objectiveText = function () {
   const p = g.player;
-  if (!p || !g.overworld) return '';
+  if (!p || !g.world) return '';
   if (g.won) return 'すべて おわった。ありがとう。';
   if (p.relics >= 3) return '東の「古い門」へ 向かおう';
-  const left = g.overworld.dungeons.filter(d => !d.cleared).length;
+  const left = g.world.dungeons.filter(d => !d.cleared).length;
   if (g.rescued === 0) return 'とらわれた村人を さがそう（檻を 斬る）';
   if (left === 3) return 'ほら穴に もぐって 遺物を さがそう';
   return `遺物を あつめよう（${p.relics} / 3）`;
@@ -1360,6 +1391,8 @@ g.objectiveText = function () {
 g.ui = UIx;
 g.dev = {
   enterLevel: (...a) => enterLevel(...a),
+  enterRoom: (...a) => enterRoom(...a),
+  travel: (d) => travel(d),
   damageObject: (...a) => damageObject(...a),
   findInteract: () => findInteract(),
   doInteract: (t) => doInteract(t),
@@ -1409,8 +1442,7 @@ function updateGameOver(dt) {
     p.deadT = 0;
     p.invuln = 1.2;
     g.state = 'play'; g.stateT = 0;
-    const ow = g.overworld;
-    enterLevel('field', ow.townX * TILE + 8, (ow.townY + 4) * TILE + 8, true);
+    enterRoom(g.world.startId, null, true);
     saveGame(g);
     clearHeld();
   }

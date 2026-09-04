@@ -120,6 +120,16 @@ const VARIANTS = {
   [O.PINE]: ['pine', 'pine2'],
   [O.BUSH]: ['bush', 'bush2'],
 };
+/** 一部のものは 2 倍で描いて 存在感を出す */
+const OBJ_SCALE = { [O.VENDING]: 2, [O.SHRINE]: 1.5, [O.CAVE]: 1.5 };
+function drawObjSprite(ctx, id, x, y, px, py) {
+  const spr = objSprite(id, x, y);
+  const sc = OBJ_SCALE[id] || 1;
+  if (sc === 1) { ctx.drawImage(spr, px, py); return; }
+  const w = spr.width * sc, h = spr.height * sc;
+  ctx.drawImage(spr, Math.round(px + TILE / 2 - w / 2), Math.round(py + TILE - h), w, h);
+}
+
 function objSprite(id, x, y) {
   const list = VARIANTS[id];
   if (!list) return SPR[OBJ_DEF[id].spr];
@@ -199,6 +209,30 @@ function drawDecor(ctx, id, px, py, x, y) {
       ctx.globalAlpha = 0.5 + 0.5 * Math.sin(t * 4 + i);
       ctx.fillRect(Math.round(px + 8 + Math.cos(a) * 11), Math.round(py + 8 + bob + Math.sin(a) * 9), 1, 1);
     }
+    ctx.globalAlpha = 1;
+  } else if (id === O.CRATE) {
+    ctx.fillStyle = PAL['0']; ctx.fillRect(px + 2, py + 3, 12, 12);
+    ctx.fillStyle = PAL.e; ctx.fillRect(px + 3, py + 4, 10, 10);
+    ctx.fillStyle = PAL.f; ctx.fillRect(px + 3, py + 4, 10, 2);
+    ctx.fillStyle = PAL.d;
+    ctx.fillRect(px + 3, py + 8, 10, 1);
+    ctx.fillRect(px + 7, py + 4, 1, 10);
+    ctx.fillStyle = PAL.c; ctx.fillRect(px + 3, py + 13, 10, 1);
+  } else if (id === O.LAMP) {
+    ctx.fillStyle = PAL['0'];
+    ctx.fillRect(px + 6, py + 2, 4, 14);
+    ctx.fillStyle = PAL.u; ctx.fillRect(px + 7, py + 3, 2, 13);
+    ctx.fillStyle = PAL['0']; ctx.fillRect(px + 3, py - 6, 10, 8);
+    ctx.fillStyle = PAL['1']; ctx.fillRect(px + 4, py - 5, 8, 6);
+    ctx.fillStyle = PAL.t; ctx.fillRect(px + 5, py - 3, 6, 3);
+    ctx.fillStyle = PAL.s; ctx.fillRect(px + 5, py - 1, 6, 1);
+    ctx.fillStyle = PAL['0']; ctx.fillRect(px + 4, py - 8, 8, 2);
+  } else if (id === O.GATEWAY) {
+    // 通り道のしるし（うっすら光る足あと）
+    const t = performance.now() / 600;
+    ctx.globalAlpha = 0.18 + Math.sin(t) * 0.06;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(px + 2, py + 5, 12, 6);
     ctx.globalAlpha = 1;
   } else if (id === O.CRACK) {
     ctx.fillStyle = PAL.u; ctx.fillRect(px, py, TILE, TILE);
@@ -306,7 +340,7 @@ export function drawScene(g) {
   if (level.kind === 'arena') {
     drawArenaBackdrop(ctx, g, camx, camy, view.w, view.h, performance.now() / 1000);
   } else {
-    ctx.fillStyle = level.kind === 'dungeon' ? '#0d0b12' : PAL.h;
+    ctx.fillStyle = level.island ? '#22403a' : level.kind === 'dungeon' ? '#0d0b12' : PAL.h;
     ctx.fillRect(0, 0, view.w, view.h);
   }
 
@@ -347,6 +381,9 @@ export function drawScene(g) {
     }
   }
 
+  // --- 島のふち ---
+  if (level.island) drawIslandEdges(ctx, level, x0, y0, x1, y1, camx, camy);
+
   // --- ボスの頭・腕（地面より上、キャラより下）---
   if (g.boss) g.boss.drawBack(ctx, camx, camy);
 
@@ -366,7 +403,7 @@ export function drawScene(g) {
       const px = x * TILE - camx, py = y * TILE - camy;
       if (!def) continue;
       if (def.tall) { drawables.push({ sortY: y * TILE + TILE, kind: 'obj', id, px, py, x, y }); continue; }
-      if (def.spr) ctx.drawImage(objSprite(id, x, y), px, py);
+      if (def.spr) drawObjSprite(ctx, id, x, y, px, py);
       else drawDecor(ctx, id, px, py, x, y);
     }
   }
@@ -392,7 +429,7 @@ export function drawScene(g) {
       continue;
     }
     const def = OBJ_DEF[d.id];
-    if (def.spr) ctx.drawImage(objSprite(d.id, d.x, d.y), d.px + camx, d.py + camy);
+    if (def.spr) drawObjSprite(ctx, d.id, d.x, d.y, d.px + camx, d.py + camy);
     else { ctx.restore(); drawDecor(ctx, d.id, d.px, d.py, d.x, d.y); ctx.save(); ctx.translate(-camx, -camy); }
   }
   FX.drawParticles(ctx);
@@ -401,7 +438,7 @@ export function drawScene(g) {
   ctx.restore();
 
   // --- 木もれ日（屋外だけ）---
-  if (level.kind === 'field') drawSunShafts(ctx, camx, camy);
+  if (level.kind === 'field' && !level.dark) drawSunShafts(ctx, camx, camy);
 
   // --- かぶりつきの寄り絵 ---
   if (g.boss) g.boss.drawLungeOverlay(ctx, camx, camy, view.w, view.h);
@@ -436,12 +473,40 @@ export function drawScene(g) {
   ctx.restore();
 }
 
+/** 島のふちに、こんもりした葉の帯を描く（参考画面の見た目に合わせて）*/
+function drawIslandEdges(ctx, level, x0, y0, x1, y1, camx, camy) {
+  const isVoid = (x, y) => !level.inb(x, y) || level.ground[y * level.w + x] === T.VOID;
+  const NB = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      if (isVoid(x, y)) continue;
+      const px = x * TILE - camx, py = y * TILE - camy;
+      for (const [ox, oy] of NB) {
+        if (!isVoid(x + ox, y + oy)) continue;
+        // その辺にそって 3 つのふくらみ
+        for (let i = 0; i < 3; i++) {
+          const t = (i + 0.5) / 3;
+          const jitter = (hash2(x * 4 + i, y * 4 + (ox + oy * 2), 991) - 0.5) * 2.2;
+          const r = 2.6 + hash2(x + i, y, 331) * 1.5;
+          let bx, by;
+          if (oy !== 0) { bx = px + t * TILE + jitter; by = py + (oy < 0 ? 1.5 : TILE - 1.5); }
+          else { bx = px + (ox < 0 ? 1.5 : TILE - 1.5); by = py + t * TILE + jitter; }
+          ctx.fillStyle = '#1d4a2b';
+          ctx.beginPath(); ctx.arc(bx, by, r + 0.9, 0, TAU); ctx.fill();
+          ctx.fillStyle = hash2(x, y + i, 77) < 0.5 ? '#54b463' : '#63c471';
+          ctx.beginPath(); ctx.arc(bx, by - 0.6, r, 0, TAU); ctx.fill();
+        }
+      }
+    }
+  }
+}
+
 /** ななめに差しこむ光。うっすらで十分。 */
 function drawSunShafts(ctx, camx, camy) {
   const t = performance.now() / 1000;
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  ctx.globalAlpha = 0.045;
+  ctx.globalAlpha = 0.035;
   ctx.fillStyle = '#fff6d8';
   const drift = (t * 3) % 90;
   for (let i = -2; i < 8; i++) {

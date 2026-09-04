@@ -89,7 +89,7 @@ const clearDialogs = async () => {
   await wait(150);
 };
 
-// --- 1. 世界生成のロバスト性 -------------------------------------------------
+// --- 1. 世界生成のロバスト性 ---
 {
   const gen = await page.evaluate(() => {
     const g = window.__game;
@@ -97,24 +97,38 @@ const clearDialogs = async () => {
     for (let i = 0; i < 16; i++) {
       const t0 = performance.now();
       g.dev.newGame(1000 + i * 4177);
-      const ow = g.overworld;
-      const reach = (x, y) => ow.reach.seen[y * ow.level.w + x] === 1;
+      const w = g.world;
+      // 家からすべての島へ行けるか
+      const seen = new Set([w.startId]);
+      const q = [w.startId];
+      while (q.length) {
+        const r = w.rooms.get(q.shift());
+        for (const d of ['n', 's', 'e', 'w']) {
+          const n = r.exits[d];
+          if (n && !seen.has(n)) { seen.add(n); q.push(n); }
+        }
+      }
+      const names = [...w.rooms.values()].map(r => r.name);
       out.push({
         ms: performance.now() - t0,
-        dungeons: ow.dungeons.length,
-        dgReach: ow.dungeons.filter(d => reach(d.x, d.y)).length,
-        villagers: ow.villagers.length,
-        vilReach: ow.villagers.filter(v => reach(v.x, v.y)).length,
-        gate: !!ow.gate && reach(ow.gate.x, ow.gate.y),
-        townOpen: !ow.level.solid(ow.townX, ow.townY),
+        rooms: w.rooms.size,
+        reachable: seen.size,
+        dungeons: w.dungeons.length,
+        dgOk: w.dungeons.every(d => seen.has(d.roomId)),
+        villagers: w.villagers.length,
+        vilOk: w.villagers.every(v => seen.has(v.roomId)),
+        gateOk: seen.has(w.gateRoomId),
+        townOk: seen.has(w.townId),
+        uniqueNames: new Set(names).size === names.length,
       });
     }
     return out;
   });
-  const bad = gen.filter(r => r.dungeons < 3 || r.dgReach < r.dungeons || r.villagers < 5
-    || r.vilReach < r.villagers || !r.gate || !r.townOpen);
-  check('16 シードすべてで、村・ほら穴3つ・村人・門が到達可能に生成される',
-    bad.length === 0, `最長 ${Math.max(...gen.map(r => r.ms)).toFixed(0)}ms`);
+  const bad = gen.filter(r => r.rooms < 30 || r.reachable !== r.rooms || r.dungeons < 3
+    || !r.dgOk || r.villagers < 5 || !r.vilOk || !r.gateOk || !r.townOk);
+  check('16 シードすべてで、島がひとつながりに生成される',
+    bad.length === 0,
+    `島 ${Math.min(...gen.map(r => r.rooms))}〜${Math.max(...gen.map(r => r.rooms))} / 最長 ${Math.max(...gen.map(r => r.ms)).toFixed(0)}ms`);
 }
 
 // --- 2. あそびはじめ ---------------------------------------------------------
@@ -168,6 +182,52 @@ check('新規ゲームが はじまる', await page.evaluate(() => window.__game
   check('その場長押し → 離すと回転斬りで周囲をなぎ払う', dead >= 3, `${dead}/4 体`);
 }
 
+// --- 2b. 島から島へ わたる ---
+{
+  const r = await page.evaluate(async () => {
+    const g = window.__game;
+    const sleep = (ms) => new Promise(res => setTimeout(res, ms));
+    const before = g.roomId;
+    const built = g.rooms[g.roomId];
+    const dirs = Object.keys(built.gateways);
+    const gw = built.gateways[dirs[0]];
+    g.player.x = gw.x * 16 + 8; g.player.y = gw.y * 16 + 8;
+    await sleep(1500);
+    const after = g.roomId;
+    // もどってこられるか
+    const b2 = g.rooms[after];
+    const back = Object.keys(b2.gateways).find(d => b2.gateways[d] && g.world.rooms.get(after).exits[d] === before);
+    if (back) {
+      const gw2 = b2.gateways[back];
+      g.player.x = gw2.x * 16 + 8; g.player.y = gw2.y * 16 + 8;
+      await sleep(1500);
+    }
+    return { before, after, home: g.roomId, dirs: dirs.length };
+  });
+  check('小道から となりの島へ わたり、もどってこられる',
+    r.after !== r.before && r.home === r.before, `${r.before} → ${r.after} → ${r.home}`);
+  await clearDialogs();
+}
+
+// --- 2c. 島の見た目（暗がりに浮かぶ草地）---
+{
+  const v = await page.evaluate(() => {
+    const g = window.__game;
+    const lv = g.level;
+    let voidN = 0, grassN = 0, pathN = 0;
+    for (let i = 0; i < lv.ground.length; i++) {
+      const t = lv.ground[i];
+      if (t === 14) voidN++;
+      else if (t === 15 || t === 16 || t === 17) grassN++;
+      else if (t === 18) pathN++;
+    }
+    return { island: !!lv.island, voidN, grassN, pathN, w: lv.w, h: lv.h };
+  });
+  check('島のまわりが 暗がりになっていて、草地と小道がある',
+    v.island && v.voidN > 20 && v.grassN > 60 && v.pathN > 8,
+    `外 ${v.voidN} / 草 ${v.grassN} / 道 ${v.pathN}`);
+}
+
 // --- 3b. すばやく払うと ころがる ---
 {
   await page.evaluate(() => { const g = window.__game; g.player.rollCd = 0; g.player.roll = 0; });
@@ -186,14 +246,27 @@ check('新規ゲームが はじまる', await page.evaluate(() => window.__game
 // --- 3c. 世界のかざり ---
 {
   const w = await page.evaluate(() => {
-    const g = window.__game, ow = g.overworld;
-    return { signs: ow.signs.length, shrines: ow.shrines.length, vendings: ow.vendings.length, hatman: !!g.hatman };
+    const g = window.__game;
+    const rs = [...g.world.rooms.values()];
+    return {
+      signs: rs.filter(r => r.content.sign != null).length,
+      shrines: rs.filter(r => r.content.shrine).length,
+      vendings: rs.filter(r => r.content.vending).length,
+      chests: rs.filter(r => r.content.chest).length,
+      hatRooms: (g.world.hatmanRooms || []).length,
+    };
   });
-  check('立て札・祠・自販機・帽子の人が 世界にいる',
-    w.signs >= 5 && w.shrines >= 2 && w.vendings >= 2 && w.hatman,
-    `立て札${w.signs} 祠${w.shrines} 自販機${w.vendings}`);
+  check('立て札・祠・自販機・宝箱が 島に配られている',
+    w.signs >= 4 && w.shrines >= 3 && w.vendings >= 3 && w.chests >= 7 && w.hatRooms === 4,
+    `立て札${w.signs} 祠${w.shrines} 自販機${w.vendings} 宝箱${w.chests}`);
 
-  await page.evaluate(() => { const g = window.__game; g.player.x = g.hatman.x; g.player.y = g.hatman.y + 16; });
+  // 帽子の人がいる島へ行って話しかける
+  await page.evaluate(() => {
+    const g = window.__game;
+    g.dev.enterRoom(g.world.hatmanRooms[0], null, false);
+  });
+  await wait(700);
+  await page.evaluate(() => { const g = window.__game; if (g.hatman) { g.player.x = g.hatman.x; g.player.y = g.hatman.y + 16; } });
   await wait(300);
   await tapButton('a');
   await wait(300);
@@ -206,8 +279,14 @@ check('新規ゲームが はじまる', await page.evaluate(() => window.__game
 {
   await page.evaluate(() => {
     const g = window.__game;
-    const s = g.overworld.signs[0];
-    g.player.x = s.x * 16 + 8; g.player.y = (s.y + 1) * 16 + 10; g.player.dir = 3;
+    const room = [...g.world.rooms.values()].find(r => r.content.sign != null);
+    g.dev.enterRoom(room.id, null, false);
+  });
+  await wait(700);
+  await page.evaluate(() => {
+    const g = window.__game;
+    const sp = g.rooms[g.roomId].spots.sign;
+    g.player.x = sp.x * 16 + 8; g.player.y = (sp.y + 1) * 16 + 10; g.player.dir = 3;
   });
   await wait(300);
   await tapButton('a');
@@ -244,11 +323,17 @@ check('新規ゲームが はじまる', await page.evaluate(() => window.__game
 
 // --- 6. 村人の救出 → 建物を建てる ---------------------------------------------
 {
+  await page.evaluate(() => {
+    const g = window.__game;
+    g.dev.enterRoom(g.world.villagers[0].roomId, null, false);
+  });
+  await wait(700);
   const r1 = await page.evaluate(() => {
     const g = window.__game;
-    const v = g.overworld.villagers[0];
-    g.player.x = v.x * 16 + 8; g.player.y = (v.y + 1) * 16 + 8;
-    g.dev.damageObject(v.x, v.y, 99);
+    const v = g.world.villagers[0];
+    const sp = g.rooms[g.roomId].spots.cage;
+    g.player.x = sp.x * 16 + 8; g.player.y = (sp.y + 1) * 16 + 8;
+    g.dev.damageObject(sp.x, sp.y, 99);
     return { freed: v.freed, rescued: g.rescued, building: v.building };
   });
   check('檻をこわすと村人が助かる', r1.freed && r1.rescued === 1, `解放：${r1.building}`);
@@ -256,8 +341,13 @@ check('新規ゲームが はじまる', await page.evaluate(() => window.__game
 
   await page.evaluate(() => {
     const g = window.__game;
-    const v = g.overworld.villagers[0];
-    const b = g.overworld.level.buildings.find(x => x.id === v.building);
+    g.dev.enterRoom(g.world.townId, null, false);
+  });
+  await wait(800);
+  await page.evaluate(() => {
+    const g = window.__game;
+    const v = g.world.villagers[0];
+    const b = g.world.buildings.find(x => x.id === v.building);
     g.player.coins = 999;
     g.player.x = (b.x + b.w / 2) * 16; g.player.y = (b.y + b.h) * 16 + 12;
     g.dev.openBuildingMenu(b);
@@ -267,8 +357,8 @@ check('新規ゲームが はじまる', await page.evaluate(() => window.__game
   await wait(700);
   const r2 = await page.evaluate(() => {
     const g = window.__game;
-    const v = g.overworld.villagers[0];
-    const b = g.overworld.level.buildings.find(x => x.id === v.building);
+    const v = g.world.villagers[0];
+    const b = g.world.buildings.find(x => x.id === v.building);
     return { built: b.built, coins: g.player.coins, npcs: g.npcs.length };
   });
   check('コインを払って村に建物が建つ', r2.built && r2.coins < 999 && r2.npcs > 0);
@@ -278,8 +368,8 @@ check('新規ゲームが はじまる', await page.evaluate(() => window.__game
 {
   const r1 = await page.evaluate(() => {
     const g = window.__game;
-    const d = g.overworld.dungeons[0];
-    g.returnPos = { x: d.x * 16 + 8, y: (d.y + 1) * 16 + 8 };
+    const d = g.world.dungeons[0];
+    g.returnRoomId = d.roomId;
     g.dev.enterLevel(d.id, null, null, false);
     const dg = g.dungeons[d.id];
     return { level: g.levelId, portal: !!dg.portalPos, secrets: dg.secrets.length, dark: g.level.dark };
@@ -318,7 +408,7 @@ check('新規ゲームが はじまる', await page.evaluate(() => window.__game
       await sleep(35);
     }
     await sleep(700);
-    return { hp0, dead: g.boss.hp <= 0, cleared: g.overworld.dungeons[0].cleared };
+    return { hp0, dead: g.boss.hp <= 0, cleared: g.world.dungeons[0].cleared };
   });
   check('手を たたいて ボスを 倒せる', r5.dead && r5.cleared, `HP ${r5.hp0}`);
 
@@ -336,25 +426,31 @@ check('新規ゲームが はじまる', await page.evaluate(() => window.__game
   });
   check('遺物を 拾える', await until(() => window.__game.player.relics === 1));
   await clearDialogs();
-  await until(() => window.__game.levelId === 'field', 4000);
+  await until(() => window.__game.levelId.startsWith('room:'), 5000);
 }
 
 // --- 8. セーブとロード --------------------------------------------------------
 {
   const r = await page.evaluate(() => {
     const g = window.__game;
-    if (g.levelId !== 'field') g.dev.enterLevel('field', null, null, false);
+    if (!g.levelId.startsWith('room:')) g.dev.enterRoom(g.world.townId, null, false);
     g.player.coins = 321; g.player.swordLv = 2;
+    const roomBefore = g.roomId;
+    const visitedBefore = [...g.world.rooms.values()].filter(r => r.visited).length;
     g.dev.save();
     g.dev.continueGame();
     return {
       coins: g.player.coins, swordLv: g.player.swordLv, relics: g.player.relics,
-      rescued: g.rescued, built: g.overworld.level.buildings.filter(b => b.built).length,
-      cleared: g.overworld.dungeons.filter(d => d.cleared).length,
+      rescued: g.rescued, built: g.world.buildings.filter(b => b.built).length,
+      cleared: g.world.dungeons.filter(d => d.cleared).length,
+      roomOk: g.roomId === roomBefore,
+      visited: [...g.world.rooms.values()].filter(r => r.visited).length,
+      visitedBefore,
     };
   });
-  check('セーブして読みなおしても進行が残る',
-    r.coins === 321 && r.swordLv === 2 && r.relics === 1 && r.rescued === 1 && r.built === 2 && r.cleared === 1,
+  check('セーブして読みなおしても進行が残る（いた島も）',
+    r.coins === 321 && r.swordLv === 2 && r.relics === 1 && r.rescued === 1
+    && r.built === 2 && r.cleared === 1 && r.roomOk && r.visited >= r.visitedBefore - 1,
     JSON.stringify(r));
 }
 
@@ -363,7 +459,12 @@ check('新規ゲームが はじまる', await page.evaluate(() => window.__game
   await page.evaluate(() => {
     const g = window.__game;
     g.player.relics = 3;
-    const gt = g.overworld.gate;
+    g.dev.enterRoom(g.world.gateRoomId, null, false);
+  });
+  await wait(700);
+  await page.evaluate(() => {
+    const g = window.__game;
+    const gt = g.rooms[g.roomId].spots.gate;
     g.dev.doInteract({ type: 'gate', tx: gt.x, ty: gt.y, x: gt.x * 16 + 8, y: gt.y * 16 });
   });
   await clearDialogs();
@@ -387,7 +488,7 @@ check('新規ゲームが はじまる', await page.evaluate(() => window.__game
   await tapButton('revive');
   await wait(1400);
   const r = await page.evaluate(() => ({ state: window.__game.state, hp: window.__game.player.hp, level: window.__game.levelId }));
-  check('「村へもどる」で復帰できる', r.state === 'play' && r.hp > 0 && r.level === 'field');
+  check('「村へもどる」で復帰できる', r.state === 'play' && r.hp > 0 && r.level.startsWith('room:'));
 }
 
 // --- 11. 画面サイズ ------------------------------------------------------------

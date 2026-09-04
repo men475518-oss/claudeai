@@ -9,20 +9,20 @@ import { SIGNS } from './story.js';
 export const T = {
   GRASS: 0, FOREST: 1, SAND: 2, DIRT: 3, MARSH: 4, ASH: 5,
   STONE: 6, WATER: 7, DEEP: 8, FLOOR: 9, CLIFF: 10, WALL: 11, RUIN: 12,
-  SWAMP: 13, VOID: 14, MOSS: 15,
+  SWAMP: 13, VOID: 14, MOSS: 15, ISLE_D: 16, ISLE_L: 17, PATH: 18,
 };
-export const TERRAIN_NAME = ['grass', 'forest', 'sand', 'dirt', 'marsh', 'ash', 'stone', 'water', 'deep', 'floor', 'cliff', 'wall', 'wallRuin', 'swamp', 'void', 'moss'];
-export const TERRAIN_SOLID = [0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 0, 1, 0];
-export const TERRAIN_SLOW = [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+export const TERRAIN_NAME = ['grass', 'forest', 'sand', 'dirt', 'marsh', 'ash', 'stone', 'water', 'deep', 'floor', 'cliff', 'wall', 'wallRuin', 'swamp', 'void', 'moss', 'isleD', 'isleL', 'path'];
+export const TERRAIN_SOLID = [0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0];
+export const TERRAIN_SLOW = [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 // 描画時の重なり優先度（高いほうが低いほうの上へディザで乗る）
-export const TERRAIN_PRIO = [3, 2, 5, 1, 2, 4, 5, 7, 6, 5, 9, 9, 9, 4, 0, 3];
+export const TERRAIN_PRIO = [3, 2, 5, 1, 2, 4, 5, 7, 6, 5, 9, 9, 9, 4, 0, 3, 2, 4, 6];
 
 // --- オブジェクト ----------------------------------------------------------
 export const O = {
   NONE: 0, TREE: 1, PINE: 2, BUSH: 3, ROCK: 4, SIGN: 5, CAVE: 6, CHEST: 7,
   CHEST_OPEN: 8, DOOR: 9, GATE: 10, CRYSTAL: 11, GRAVE: 12, DEADTREE: 13,
   FLOWER: 14, TUFT: 15, STAIRS: 16, PILLAR: 17, CAGE: 18, CRACK: 19,
-  EXIT: 20, RELIC: 21, SNOWPINE: 22, TORCH: 23, POT: 24, PORTAL: 25, BOUND: 26, VENDING: 27, SHRINE: 28,
+  EXIT: 20, RELIC: 21, SNOWPINE: 22, TORCH: 23, POT: 24, PORTAL: 25, BOUND: 26, VENDING: 27, SHRINE: 28, GATEWAY: 29, LAMP: 30, CRATE: 31,
 };
 
 /** [sprite, solid, hp(0=壊せない), tall(縦に重なる大きさ)] */
@@ -55,6 +55,9 @@ export const OBJ_DEF = {
   [O.BOUND]:     { spr: null, solid: 1, hp: 0, tall: 0 },   // 見えない仕切り
   [O.VENDING]:   { spr: 'vending', solid: 1, hp: 0, tall: 1 },
   [O.SHRINE]:    { spr: 'shrine', solid: 1, hp: 0, tall: 0 },
+  [O.GATEWAY]:   { spr: null, solid: 0, hp: 0, tall: 0 },   // となりの部屋へ
+  [O.LAMP]:      { spr: null, solid: 1, hp: 0, tall: 1 },
+  [O.CRATE]:     { spr: null, solid: 1, hp: 2, tall: 0 },
 };
 
 export function objSolid(id) { const d = OBJ_DEF[id]; return d ? d.solid : 0; }

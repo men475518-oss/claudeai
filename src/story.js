@@ -31,7 +31,7 @@ export const SHRINE_INTRO = [
 /** 帽子の人。進み具合で言うことが変わる。 */
 export function hatmanLines(g) {
   const p = g.player;
-  const cleared = g.overworld.dungeons.filter(d => d.cleared).length;
+  const cleared = g.world.dungeons.filter(d => d.cleared).length;
   if (g.won) return ['朝だね。', 'ぼくは 朝も きらいじゃないよ。'];
   if (p.relics >= 3) return ['門を あけるのかい。', '……いいよ。\nぼくは、ここで 見ている。'];
   if (cleared >= 2) return ['主が ふたり ねむった。', 'かわりは、いくらでも いる。\nきみの村にも、そのうち。'];

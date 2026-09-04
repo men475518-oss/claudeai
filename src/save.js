@@ -1,32 +1,8 @@
 // ---------------------------------------------------------------------------
 // save.js — localStorage への保存と復元
+//   世界はシードから作りなおせるので、残すのは「変わったこと」だけでよい。
 // ---------------------------------------------------------------------------
 import { SAVE_KEY } from './config.js';
-
-function rleEncode(arr) {
-  let out = '', run = 0, cur = arr[0] || 0;
-  for (let i = 0; i < arr.length; i++) {
-    const v = arr[i] ? 1 : 0;
-    if (v === cur) run++;
-    else { out += run.toString(36) + (cur ? 'x' : '.'); cur = v; run = 1; }
-  }
-  out += run.toString(36) + (cur ? 'x' : '.');
-  return out;
-}
-
-function rleDecode(str, len) {
-  const arr = new Uint8Array(len);
-  let i = 0, num = '';
-  for (const ch of str) {
-    if (ch === 'x' || ch === '.') {
-      const n = parseInt(num, 36) || 0;
-      if (ch === 'x') arr.fill(1, i, Math.min(len, i + n));
-      i += n; num = '';
-      if (i >= len) break;
-    } else num += ch;
-  }
-  return arr;
-}
 
 export function hasSave() {
   try { return !!localStorage.getItem(SAVE_KEY); } catch { return false; }
@@ -35,23 +11,24 @@ export function hasSave() {
 export function saveGame(g) {
   try {
     const p = g.player;
+    const visited = [];
+    for (const [id, r] of g.world.rooms) if (r.visited) visited.push(id);
     const data = {
-      v: 1,
+      v: 2,
       seed: g.seed,
       time: g.playTime,
-      levelId: 'field',
-      px: g.levelId === 'field' ? p.x : g.overworld.townX * 16 + 8,
-      py: g.levelId === 'field' ? p.y : g.overworld.townY * 16 + 8,
+      roomId: g.levelId.startsWith('room:') ? g.roomId : (g.returnRoomId || g.world.startId),
       hp: p.hp, maxHp: p.maxHp,
       coins: p.coins, keys: p.keys, gems: p.gems,
       bombs: p.bombs, potions: p.potions,
-      swordLv: p.swordLv, magic: p.magic, item: p.item, relics: p.relics,
-      buildings: g.overworld.level.buildings.map(b => (b.built ? 1 : 0)),
-      villagers: g.overworld.villagers.map(v => (v.freed ? 1 : 0)),
-      dungeons: g.overworld.dungeons.map(d => (d.cleared ? 1 : 0)),
-      relicTaken: g.overworld.dungeons.map(d => (d.relicTaken ? 1 : 0)),
+      swordLv: p.swordLv, magic: p.magic, mp: p.mp, maxMp: p.maxMp,
+      item: p.item, relics: p.relics,
+      buildings: g.world.buildings.map(b => (b.built ? 1 : 0)),
+      villagers: g.world.villagers.map(v => (v.freed ? 1 : 0)),
+      dungeons: g.world.dungeons.map(d => (d.cleared ? 1 : 0)),
+      relicTaken: g.world.dungeons.map(d => (d.relicTaken ? 1 : 0)),
       opened: [...g.openedChests],
-      explored: rleEncode(g.overworld.level.explored),
+      visited,
       rescued: g.rescued,
       gateOpen: g.gateOpen ? 1 : 0,
       won: g.won ? 1 : 0,
@@ -70,31 +47,32 @@ export function loadSaveData() {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return null;
     const d = JSON.parse(raw);
-    if (!d || d.v !== 1) return null;
+    if (!d || d.v !== 2) return null;      // 古い形式は読まない
     return d;
   } catch { return null; }
 }
 
 export function applySave(g, d) {
   const p = g.player;
-  p.x = d.px; p.y = d.py;
   p.hp = d.hp; p.maxHp = d.maxHp;
   p.coins = d.coins; p.keys = d.keys; p.gems = d.gems || 0;
   p.bombs = d.bombs; p.potions = d.potions;
-  p.swordLv = d.swordLv; p.magic = d.magic || 0; p.item = d.item || 'bomb';
+  p.swordLv = d.swordLv; p.magic = d.magic || 0;
+  p.mp = d.mp || 0; p.maxMp = d.maxMp || 0;
+  p.item = d.item || 'bomb';
   p.relics = d.relics || 0;
   g.playTime = d.time || 0;
   g.rescued = d.rescued || 0;
   g.gateOpen = !!d.gateOpen;
   g.won = !!d.won;
   g.kills = d.kills || 0;
-  const lv = g.overworld.level;
-  (d.buildings || []).forEach((v, i) => { if (lv.buildings[i]) lv.buildings[i].built = !!v; });
-  (d.villagers || []).forEach((v, i) => { if (g.overworld.villagers[i]) g.overworld.villagers[i].freed = !!v; });
-  (d.dungeons || []).forEach((v, i) => { if (g.overworld.dungeons[i]) g.overworld.dungeons[i].cleared = !!v; });
-  (d.relicTaken || []).forEach((v, i) => { if (g.overworld.dungeons[i]) g.overworld.dungeons[i].relicTaken = !!v; });
+  const w = g.world;
+  (d.buildings || []).forEach((v, i) => { if (w.buildings[i]) w.buildings[i].built = !!v; });
+  (d.villagers || []).forEach((v, i) => { if (w.villagers[i]) w.villagers[i].freed = !!v; });
+  (d.dungeons || []).forEach((v, i) => { if (w.dungeons[i]) w.dungeons[i].cleared = !!v; });
+  (d.relicTaken || []).forEach((v, i) => { if (w.dungeons[i]) w.dungeons[i].relicTaken = !!v; });
+  for (const id of (d.visited || [])) { const r = w.rooms.get(id); if (r) r.visited = true; }
   g.openedChests = new Set(d.opened || []);
-  if (d.explored) lv.explored.set(rleDecode(d.explored, lv.explored.length));
   return true;
 }
 

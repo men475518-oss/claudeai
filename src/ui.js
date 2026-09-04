@@ -605,7 +605,125 @@ function buildMap(level) {
   return c;
 }
 
+/** 島のつながりを 点と線で描く（部屋づたいの世界なので これが読みやすい）*/
+function drawRoomMap(ctx, g) {
+  const S = ui.S, W = view.cssW, H = view.cssH;
+  const w = g.world;
+  const here = w.rooms.get(g.roomId);
+
+  ctx.fillStyle = 'rgba(8,10,12,0.90)';
+  ctx.fillRect(0, 0, W, H);
+
+  // 見えている島＝行ったことがある島と、そのとなり
+  const shown = new Map();
+  for (const [id, r] of w.rooms) {
+    if (r.visited || r.known) shown.set(id, { r, ghost: !r.visited });
+    else {
+      for (const d of ['n', 's', 'e', 'w']) {
+        const nid = r.exits[d];
+        const n = nid && w.rooms.get(nid);
+        if (n && n.visited) { shown.set(id, { r, ghost: true }); break; }
+      }
+    }
+  }
+  if (!shown.size) shown.set(here.id, { r: here, ghost: false });
+
+  let minX = 99, maxX = -99, minY = 99, maxY = -99;
+  for (const { r } of shown.values()) {
+    minX = Math.min(minX, r.gx); maxX = Math.max(maxX, r.gx);
+    minY = Math.min(minY, r.gy); maxY = Math.max(maxY, r.gy);
+  }
+  const cols = maxX - minX + 1, rows = maxY - minY + 1;
+  const padX = 26 * S, top = 78 * S, bottom = 118 * S;
+  const availW = W - padX * 2, availH = H - top - bottom;
+  const step = Math.max(34 * S, Math.min(availW / cols, availH / rows, 86 * S));
+  const ox = (W - (cols - 1) * step) / 2 - minX * step;
+  const oy = top + (availH - (rows - 1) * step) / 2 - minY * step;
+  const pos = (r) => ({ x: ox + r.gx * step, y: oy + r.gy * step });
+
+  txt(ctx, 'この あたりの 島', W / 2, 34 * S, { size: 17 * S, align: 'center', color: '#f2a4b0', weight: 700 });
+
+  // --- 線 ---
+  ctx.lineCap = 'round';
+  for (const { r, ghost } of shown.values()) {
+    const a = pos(r);
+    for (const d of ['e', 's']) {           // 重ねて引かないよう 2 方向だけ
+      const nid = r.exits[d];
+      if (!nid || !shown.has(nid)) continue;
+      const b = pos(w.rooms.get(nid));
+      const both = !ghost && !shown.get(nid).ghost;
+      ctx.strokeStyle = both ? 'rgba(236,132,148,0.75)' : 'rgba(236,132,148,0.22)';
+      ctx.lineWidth = both ? 2.4 * S : 1.4 * S;
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    }
+  }
+
+  // --- 島 ---
+  const rx = Math.min(step * 0.44, 42 * S), ry = Math.min(step * 0.30, 26 * S);
+  for (const { r, ghost } of shown.values()) {
+    const c = pos(r);
+    const cur = r.id === g.roomId;
+    ctx.beginPath();
+    ctx.ellipse(c.x, c.y, rx, ry, 0, 0, TAU);
+    ctx.fillStyle = ghost ? 'rgba(24,20,28,0.75)' : 'rgba(30,24,34,0.95)';
+    ctx.fill();
+    ctx.strokeStyle = cur ? '#ffd76a' : ghost ? 'rgba(236,132,148,0.35)' : '#ec8494';
+    ctx.lineWidth = (cur ? 2.8 : 1.8) * S;
+    ctx.stroke();
+
+    if (ghost) {
+      txt(ctx, '？', c.x, c.y - 8 * S, { size: 13 * S, align: 'center', color: 'rgba(242,164,176,0.55)', outline: false });
+    } else {
+      const size = Math.max(8 * S, Math.min(11 * S, rx / 2.6));
+      const lines = wrapText(ctx, r.name, rx * 1.85, size).slice(0, 2);
+      lines.forEach((l, i) => txt(ctx, l, c.x, c.y - (lines.length * size * 1.15) / 2 + i * size * 1.15,
+        { size, align: 'center', color: cur ? '#ffe9a8' : '#f6c9d0', outline: false }));
+    }
+
+    // 目じるし
+    const marks = [];
+    const dg = w.dungeons.find(d => d.roomId === r.id);
+    if (dg) marks.push(dg.cleared ? '#7fb8d4' : '#e0574a');
+    if (r.content.gate) marks.push('#e6c2f5');
+    const vil = w.villagers.find(v => v.roomId === r.id && !v.freed);
+    if (vil && (r.visited || r.known)) marks.push('#b57ad4');
+    if (r.kind === 'town' || r.kind === 'home') marks.push('#e8c46a');
+    if (!ghost && r.content.vending) marks.push('#8f7ad0');
+    marks.forEach((col, i) => {
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.arc(c.x - (marks.length - 1) * 5 * S + i * 10 * S, c.y + ry - 3 * S, 3.4 * S, 0, TAU);
+      ctx.fill();
+    });
+
+    if (cur) {
+      const t = performance.now() / 300;
+      ctx.strokeStyle = `rgba(255,215,106,${0.35 + Math.sin(t) * 0.25})`;
+      ctx.lineWidth = 2 * S;
+      ctx.beginPath(); ctx.ellipse(c.x, c.y, rx + 5 * S, ry + 5 * S, 0, 0, TAU); ctx.stroke();
+    }
+  }
+
+  // --- 下の情報 ---
+  const visited = [...w.rooms.values()].filter(r => r.visited).length;
+  txt(ctx, `${here.name}　／　${visited} / ${w.rooms.size} の島`, W / 2, H - ui.padBottom - 96 * S,
+    { size: 13 * S, align: 'center', color: UI.ink });
+  const obj = g.objectiveText ? g.objectiveText() : '';
+  if (obj) txt(ctx, '▶ ' + obj, W / 2, H - ui.padBottom - 74 * S, { size: 13 * S, align: 'center', color: UI.gold });
+  const leg = [['#e8c46a', '町・家'], ['#e0574a', 'ほら穴'], ['#b57ad4', '村人'], ['#7fb8d4', 'クリア']];
+  let lx = W / 2 - (leg.length * 62 * S) / 2;
+  for (const [col, label] of leg) {
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(lx + 3 * S, H - ui.padBottom - 46 * S, 3.4 * S, 0, TAU); ctx.fill();
+    txt(ctx, label, lx + 12 * S, H - ui.padBottom - 52 * S, { size: 10.5 * S, color: UI.inkDim, outline: false });
+    lx += 62 * S;
+  }
+  txt(ctx, 'タップでとじる', W / 2, H - ui.padBottom - 26 * S, { size: 12 * S, align: 'center', color: UI.inkDim });
+}
+
 export function drawMap(ctx, g) {
+  if (g.levelId && g.levelId.startsWith('room:')) return drawRoomMap(ctx, g);
+
   const S = ui.S, W = view.cssW, H = view.cssH;
   const level = g.level;
   if (mapDirty || mapLevelId !== level.id || !mapCanvas) {
@@ -644,24 +762,7 @@ export function drawMap(ctx, g) {
   };
   const explored = (tx, ty) => level.explored[ty * level.w + tx];
 
-  if (level.id === 'field') {
-    const ow = g.overworld;
-    for (const b of level.buildings) if (b.built) mark(b.x + b.w / 2, b.y + b.h / 2, '#e8c46a', 4);
-    // ほら穴と門は「行き先」なので未探索でも うっすら見える
-    for (const d of ow.dungeons) {
-      const seen = explored(d.x, d.y);
-      ctx.globalAlpha = seen ? 1 : 0.42;
-      mark(d.x, d.y, d.cleared ? '#7fb8d4' : '#d65c4e', seen ? 5 : 4);
-      ctx.globalAlpha = 1;
-    }
-    if (ow.gate) {
-      const seen = explored(ow.gate.x, ow.gate.y);
-      ctx.globalAlpha = seen ? 1 : 0.42;
-      mark(ow.gate.x, ow.gate.y, '#e6c2f5', seen ? 5 : 4);
-      ctx.globalAlpha = 1;
-    }
-    for (const v of ow.villagers) if (!v.freed && explored(v.x, v.y)) mark(v.x, v.y, '#b57ad4', 4);
-  } else {
+  {
     for (let y = 0; y < level.h; y++)
       for (let x = 0; x < level.w; x++) {
         if (!explored(x, y)) continue;
@@ -814,7 +915,7 @@ export function drawEnding(ctx, g, t) {
     'それでも 名前は ちゃんと 覚えていた。',
     '',
     `救った村人  ${g.rescued} 人`,
-    `建てた家    ${g.overworld.level.buildings.filter(b => b.built).length} けん`,
+    `建てた家    ${g.world.buildings.filter(b => b.built).length} けん`,
     `たおした敵  ${g.kills}`,
     `あつめたコイン  ${g.player.coins}`,
     `かかった時間  ${formatTime(g.playTime)}`,
