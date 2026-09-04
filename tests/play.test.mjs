@@ -182,6 +182,23 @@ check('新規ゲームが はじまる', await page.evaluate(() => window.__game
   check('その場長押し → 離すと回転斬りで周囲をなぎ払う', dead >= 3, `${dead}/4 体`);
 }
 
+// --- 2a2. 画面のどこをタップしても斬れる ---
+{
+  const results = [];
+  for (const y of [0.24, 0.40, 0.58, 0.76, 0.90]) {
+    await page.evaluate(() => {
+      const g = window.__game;
+      g.player.attack = 0; g.player.cooldown = 0; g.player.spin = 0; g.player.roll = 0;
+    });
+    await page.mouse.click(195, Math.round(844 * y));
+    await wait(90);
+    results.push(await page.evaluate(() => window.__game.player.attack > 0));
+    await wait(320);
+  }
+  check('画面のどこをタップしても 剣を振る（ボタン不要）',
+    results.every(Boolean), results.map(r => (r ? '○' : '×')).join(''));
+}
+
 // --- 2b. 島から島へ わたる ---
 {
   const r = await page.evaluate(async () => {

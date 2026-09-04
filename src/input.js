@@ -74,8 +74,9 @@ function onDown(e) {
     input.anyPressed = true;
     return;
   }
-  // スティックは画面下 2/3 のどこからでも出せる
-  if (input.stickEnabled && !input.stick.active && p.y > view.cssH * 0.34) {
+  // 画面のどこでも：ドラッグすれば歩き、その場でタップすれば斬る。
+  // （メニューやボタンの上は 先に hitButton が拾っている）
+  if (input.stickEnabled && !input.stick.active) {
     input.stick.active = true;
     input.stick.id = e.pointerId;
     input.stick.ox = p.x; input.stick.oy = p.y;

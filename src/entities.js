@@ -2,7 +2,7 @@
 // entities.js — プレイヤー・敵・NPC・落ちもの・弾
 // ---------------------------------------------------------------------------
 import { TILE, PLAYER } from './config.js';
-import { clamp, dirFromVec, DIR_VEC, makeRng, TAU, lerp, dist } from './util.js';
+import { clamp, dirFromVec, DIR_VEC, makeRng, TAU, lerp, dist, easeOutCubic } from './util.js';
 import { SPR, whiteOf, PAL } from './art.js';
 import * as FX from './fx.js';
 import { sfx } from './audio.js';
@@ -281,6 +281,10 @@ export class Player extends Entity {
 
     const f = this.walkT > 0 ? (Math.floor(this.walkT) % 2) : 0;
     const bob = this.walkT > 0 && f === 1 ? -1 : 0;
+    // 上へ振るときは 剣が体のうしろに来る
+    const behind = this.spin <= 0 && this.attack > 0 && this.attackDir === 3;
+    if (behind) drawSword(ctx, this);
+
     const flashing = this.invuln > 0 && Math.floor(this.invuln * 18) % 2 === 0;
     if (flashing && this.hurtT > 0.05) {
       this.blit(ctx, frames[f], 0, bob, 1, true);
@@ -305,59 +309,78 @@ export class Player extends Entity {
       ctx.fillRect(Math.round(this.x - 1), Math.round(this.y - 20), 2, 2);
       ctx.globalAlpha = 1;
     }
-    drawSword(ctx, this);
+    if (!behind) drawSword(ctx, this);
   }
 }
 
-/** 剣の軌跡 */
+/** 剣そのもの。原点から angle の向きへ生やす。 */
+function drawBlade(ctx, angle, len, glow) {
+  ctx.save();
+  ctx.rotate(angle);
+  const bl = Math.max(5, len - 6);
+  // 柄
+  ctx.fillStyle = PAL['0']; ctx.fillRect(-2, -2, 6, 4);
+  ctx.fillStyle = PAL.d;    ctx.fillRect(-1, -1, 4, 2);
+  // つば
+  ctx.fillStyle = PAL['0']; ctx.fillRect(3, -4, 3, 8);
+  ctx.fillStyle = PAL.s;    ctx.fillRect(4, -3, 2, 6);
+  // 身
+  ctx.fillStyle = PAL['0']; ctx.fillRect(6, -3, bl + 1, 6);
+  ctx.fillStyle = PAL.w;    ctx.fillRect(6, -2, bl, 4);
+  ctx.fillStyle = glow ? PAL.t : PAL.y; ctx.fillRect(6, -2, bl, 2);
+  // 切っ先
+  ctx.fillStyle = PAL['0'];
+  ctx.beginPath(); ctx.moveTo(6 + bl, -3); ctx.lineTo(6 + bl + 4, 0); ctx.lineTo(6 + bl, 3); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = PAL.x;
+  ctx.beginPath(); ctx.moveTo(6 + bl, -2); ctx.lineTo(6 + bl + 3, 0); ctx.lineTo(6 + bl, 2); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+/** 振りの軌跡と剣 */
 function drawSword(ctx, p) {
+  const px = Math.round(p.x), py = Math.round(p.y - 7);
+  const bladeLen = 12 + Math.min(3, p.swordLv);
+
   if (p.spin > 0) {
     const t = 1 - p.spin / PLAYER.spinTime;
     const a0 = t * TAU * 2.2;
     ctx.save();
-    ctx.translate(Math.round(p.x), Math.round(p.y - 6));
-    for (let k = 0; k < 3; k++) {
-      const a = a0 - k * 0.34;
-      ctx.globalAlpha = 0.9 - k * 0.28;
-      ctx.strokeStyle = k === 0 ? PAL.y : PAL.k;
-      ctx.lineWidth = 2 - k * 0.5;
+    ctx.translate(px, py);
+    for (let k = 1; k <= 4; k++) {
+      ctx.globalAlpha = 0.55 - k * 0.11;
+      ctx.strokeStyle = k < 2 ? PAL.y : PAL.k;
+      ctx.lineWidth = 3.2 - k * 0.6;
       ctx.beginPath();
-      ctx.arc(0, 0, 13, a, a + 0.9);
+      ctx.arc(0, 0, bladeLen + 3, a0 - k * 0.42, a0 - (k - 1) * 0.42);
       ctx.stroke();
     }
     ctx.globalAlpha = 1;
+    drawBlade(ctx, a0, bladeLen, true);
     ctx.restore();
     return;
   }
+
   if (p.attack <= 0) return;
   const t = 1 - p.attack / PLAYER.attackTime;
   const base = [Math.PI / 2, Math.PI, 0, -Math.PI / 2][p.attackDir];
   const swing = p.combo === 0 ? 1 : -1;
-  const a = base + swing * lerp(-1.25, 1.25, t);
-  const r = 12 + Math.sin(t * Math.PI) * 3;
+  const a = base + swing * lerp(-1.15, 1.15, easeOutCubic(t));
+  const s = Math.sin(t * Math.PI);
+
   ctx.save();
-  ctx.translate(Math.round(p.x), Math.round(p.y - 6));
-  ctx.globalAlpha = Math.sin(t * Math.PI) * 0.95;
+  ctx.translate(px, py);
+  // 振り抜いた跡
+  ctx.globalAlpha = s * 0.9;
   ctx.strokeStyle = PAL.y;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.arc(0, 0, r, a - swing * 0.55, a + swing * 0.15, swing < 0);
-  ctx.stroke();
+  ctx.lineWidth = 2.6;
+  ctx.beginPath(); ctx.arc(0, 0, bladeLen + 3, a - swing * 0.8, a, swing < 0); ctx.stroke();
+  ctx.globalAlpha = s * 0.45;
   ctx.strokeStyle = PAL.k;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.arc(0, 0, r - 3, a - swing * 0.7, a, swing < 0);
-  ctx.stroke();
-  // 刃
+  ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.arc(0, 0, bladeLen - 2, a - swing * 1.0, a, swing < 0); ctx.stroke();
   ctx.globalAlpha = 1;
-  ctx.strokeStyle = PAL.x;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(Math.cos(a) * 4, Math.sin(a) * 4);
-  ctx.lineTo(Math.cos(a) * (r + 1), Math.sin(a) * (r + 1));
-  ctx.stroke();
+  drawBlade(ctx, a, bladeLen, false);
   ctx.restore();
-  ctx.globalAlpha = 1;
 }
 
 // ---------------------------------------------------------------------------
