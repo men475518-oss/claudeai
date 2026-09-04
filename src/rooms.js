@@ -4,7 +4,8 @@
 //   全体の形はグリッド上のグラフとして持ち、マップ画面はそれを点と線で描く。
 // ---------------------------------------------------------------------------
 import { Level, T, O, BUILDINGS, applyBuildings } from './world.js';
-import { makeRng, fbm, clamp } from './util.js';
+import { makeRng, clamp } from './util.js';
+import { makeIslandShape, rasterizeIsland, addPool, poolSpot } from './island.js';
 
 export const OPP = { n: 's', s: 'n', e: 'w', w: 'e' };
 export const DV = { n: [0, -1], s: [0, 1], e: [1, 0], w: [-1, 0] };
@@ -221,88 +222,54 @@ export function buildRoomLevel(world, room) {
   const rng = makeRng(room.seed);
 
   const cx = W / 2, cy = H / 2;
-  const rx = W / 2 - 1.9, ry = H / 2 - 2.0;
   const flat = room.kind === 'town' || room.kind === 'home';
-  const power = flat ? 2.8 : 1.45 + rng() * 0.4;   // 1.0 でひし形、2.0 で楕円
-  const wob = flat ? 0.10 : 0.30 + rng() * 0.18;
 
-  const inside = (x, y) => {
-    const dx = Math.abs((x + 0.5 - cx) / rx);
-    const dy = Math.abs((y + 0.5 - cy) / ry);
-    const d = Math.pow(dx, power) + Math.pow(dy, power);
-    const n = (fbm(x / 4.5, y / 4.5, room.seed) - 0.5) * wob;
-    return d + n <= 1;
-  };
+  // 島の形は多角形で持ち、通行判定だけタイルへ焼く（見た目は island.js が描く）
+  const shape = makeIslandShape(room, W, H, room.exits, { flat });
+  rasterizeIsland(lv, shape, T);
+  lv.shape = shape;
+  lv.shapeSeed = room.seed;
+  lv.shapeKind = room.kind;
 
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++)
-      if (inside(x, y)) lv.setG(x, y, T.MOSS);
+  const isGround = (x, y) => lv.inb(x, y) && lv.g(x, y) !== T.VOID;
 
-  // --- 出口へのびる くびれた通路（島の外がわだけ掘る）---
+  // --- 出口（島のはしの小道）---
   const gateways = {};
-  const midX = Math.round(cx - 0.5), midY = Math.round(cy - 0.5);
+  const midX = clamp(Math.floor(cx), 0, W - 1), midY = clamp(Math.floor(cy), 0, H - 1);
   for (const dir of DIRS) {
     if (!room.exits[dir]) continue;
-    const [dx, dy] = DV[dir];
-    // まず 島のふちまで進む
-    let x = midX, y = midY;
-    while (lv.inb(x + dx, y + dy) && inside(x + dx, y + dy)) { x += dx; y += dy; }
-    // そこから 外へ 3 マス幅の首を のばす
-    let gx = x, gy = y;
-    while (lv.inb(x, y)) {
-      for (let o = -1; o <= 1; o++) {
-        const px = dx !== 0 ? x : x + o;
-        const py = dy !== 0 ? y : y + o;
-        if (lv.inb(px, py)) lv.setG(px, py, T.MOSS);
-      }
-      gx = x; gy = y;
-      x += dx; y += dy;
-    }
-    gateways[dir] = { x: clamp(gx, 0, W - 1), y: clamp(gy, 0, H - 1) };
+    if (dir === 'n') gateways.n = { x: midX, y: 0 };
+    else if (dir === 's') gateways.s = { x: midX, y: H - 1 };
+    else if (dir === 'e') gateways.e = { x: W - 1, y: midY };
+    else gateways.w = { x: 0, y: midY };
+  }
+  for (const dir of Object.keys(gateways)) {
+    const gw = gateways[dir];
+    lv.setG(gw.x, gw.y, T.PATH);
+    lv.setO(gw.x, gw.y, O.GATEWAY);
   }
 
-  // --- ふちの濃い緑 ---
-  const isGround = (x, y) => lv.inb(x, y) && lv.g(x, y) !== T.VOID;
-  const edgeDist = new Int8Array(W * H).fill(9);
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) {
-      if (!isGround(x, y)) continue;
-      let near = 9;
-      for (let oy = -2; oy <= 2; oy++)
-        for (let ox = -2; ox <= 2; ox++)
-          if (!isGround(x + ox, y + oy)) near = Math.min(near, Math.max(Math.abs(ox), Math.abs(oy)));
-      edgeDist[y * W + x] = near;
-    }
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) {
-      if (!isGround(x, y)) continue;
-      if (edgeDist[y * W + x] <= 1) lv.setG(x, y, T.ISLE_D);
-      else if (fbm(x / 3.2 + 11, y / 3.2 + 7, room.seed + 5) > 0.60) lv.setG(x, y, T.ISLE_L);
-    }
-
-  // --- 小道（中心から 各出口へ）---
-  for (const dir of Object.keys(gateways)) {
-    const gwe = gateways[dir];
-    const [dx, dy] = DV[dir];
-    let x = midX, y = midY;
-    for (let step = 0; step < Math.max(W, H) + 2; step++) {
-      const jig = Math.round(Math.sin(step * 0.45 + (room.seed % 11)) * 1.3);
-      const wide = (step % 3 === 0) ? 2 : 1;
-      for (let w = 0; w < wide; w++) {
-        const px = dx !== 0 ? x : x + jig + w;
-        const py = dy !== 0 ? y : y + jig + w;
-        if (isGround(px, py)) lv.setG(px, py, T.PATH);
-      }
-      if (x === gwe.x && y === gwe.y) break;
-      x += dx; y += dy;
-      if (x < 0 || y < 0 || x >= W || y >= H) break;
-    }
+  // --- 池のある島 ---
+  if (room.kind === 'pool') {
+    const ps = poolSpot(shape, 2.6);
+    addPool(lv, shape, T, ps.x, ps.y, 2.6, room.seed);
   }
 
-  // --- 通り道の入口に しるし（となりへ行く床）---
-  for (const dir of Object.keys(gateways)) {
-    const gwe = gateways[dir];
-    lv.setO(gwe.x, gwe.y, O.GATEWAY);
+  // --- 建物（家の島と 町）---
+  let buildings = [];
+  if (flat) {
+    buildings = world.buildings.filter(b => b.roomId === room.id);
+    const plots = room.kind === 'home'
+      ? [{ dx: -2, dy: -5, w: 4, h: 3 }]
+      : [{ dx: -6, dy: -6, w: 4, h: 3 }, { dx: -1, dy: -7, w: 4, h: 3 }, { dx: 3, dy: -5, w: 4, h: 3 },
+         { dx: -6, dy: -1, w: 4, h: 3 }, { dx: 2, dy: 0, w: 4, h: 3 }, { dx: -3, dy: 4, w: 4, h: 3 }];
+    buildings.forEach((b, i) => {
+      const pl = plots[i % plots.length];
+      b.x = Math.round(cx + pl.dx); b.y = Math.round(cy + pl.dy);
+      b.w = pl.w; b.h = pl.h;
+    });
+    lv.buildings = buildings;
+    applyBuildings(lv, buildings);
   }
 
   // --- 中身 ---
@@ -311,17 +278,33 @@ export function buildRoomLevel(world, room) {
     for (let x = 1; x < W - 1; x++) {
       if (!isGround(x, y) || lv.o(x, y) !== O.NONE) continue;
       if (lv.g(x, y) === T.PATH) continue;
+      // ふちギリギリに置くと 絵が島から はみ出して見える
+      if (!isGround(x - 1, y) || !isGround(x + 1, y)
+        || !isGround(x, y - 1) || !isGround(x, y + 1)) continue;
       const d = Math.hypot(x - cx, y - cy);
       if (d < 2.2) continue;                       // まんなかは あけておく
       free.push({ x, y, d });
     }
+  // 小さな島で 置き場がなくなったら ふち条件をゆるめる
+  if (free.length < 14) {
+    for (let y = 1; y < H - 1; y++)
+      for (let x = 1; x < W - 1; x++) {
+        if (!isGround(x, y) || lv.o(x, y) !== O.NONE) continue;
+        if (lv.g(x, y) === T.PATH) continue;
+        if (Math.hypot(x - cx, y - cy) < 2.2) continue;
+        if (free.some(f => f.x === x && f.y === y)) continue;
+        free.push({ x, y, d: Math.hypot(x - cx, y - cy) });
+      }
+  }
   rng.shuffle(free);
   const take = () => free.pop();
   /** 大きく描くものは 島のふちから離れた場所へ */
+  const nearBuilding = (x, y) => buildings.some(b =>
+    x >= b.x - 2 && x <= b.x + b.w + 1 && y >= b.y - 1 && y <= b.y + b.h + 2);
   const takeInner = () => {
     for (let i = free.length - 1; i >= 0; i--) {
       const c = free[i];
-      let ok = true;
+      let ok = !nearBuilding(c.x, c.y);
       for (let oy = -2; oy <= 2 && ok; oy++)
         for (let ox = -2; ox <= 2 && ok; ox++)
           if (!isGround(c.x + ox, c.y + oy)) ok = false;
@@ -340,26 +323,6 @@ export function buildRoomLevel(world, room) {
     return null;
   };
 
-  // --- 建物（家の島と 町）---
-  let buildings = [];
-  if (room.kind === 'home' || room.kind === 'town') {
-    buildings = world.buildings.filter(b => b.roomId === room.id);
-    const plots = room.kind === 'home'
-      ? [{ dx: -2, dy: -5, w: 4, h: 3 }]
-      : [{ dx: -6, dy: -6, w: 4, h: 3 }, { dx: -1, dy: -7, w: 4, h: 3 }, { dx: 3, dy: -5, w: 4, h: 3 },
-         { dx: -6, dy: -1, w: 4, h: 3 }, { dx: 2, dy: 0, w: 4, h: 3 }, { dx: -3, dy: 4, w: 4, h: 3 }];
-    buildings.forEach((b, i) => {
-      const pl = plots[i % plots.length];
-      b.x = Math.round(cx + pl.dx); b.y = Math.round(cy + pl.dy);
-      b.w = pl.w; b.h = pl.h;
-      for (let y = b.y - 1; y < b.y + b.h + 1; y++)
-        for (let x = b.x - 1; x < b.x + b.w + 1; x++)
-          if (lv.inb(x, y)) lv.setG(x, y, lv.g(x, y) === T.VOID ? T.MOSS : lv.g(x, y));
-    });
-    lv.buildings = buildings;
-    applyBuildings(lv, buildings);
-  }
-
   decorate(lv, room, rng, put, take, isGround, W, H, cx, cy);
 
   // --- 特別なもの ---
@@ -371,7 +334,7 @@ export function buildRoomLevel(world, room) {
     spots.cave = s;
   }
   if (room.content.gate) {
-    const s = { x: Math.round(cx - 0.5), y: Math.max(2, Math.round(cy - ry * 0.55)) };
+    const s = { x: Math.round(cx - 0.5), y: Math.max(2, Math.round(cy - H * 0.22)) };
     for (let oy = -1; oy <= 1; oy++)
       for (let ox = -2; ox <= 2; ox++)
         if (isGround(s.x + ox, s.y + oy)) { lv.setG(s.x + ox, s.y + oy, T.STONE); lv.setO(s.x + ox, s.y + oy, O.NONE); }
@@ -428,16 +391,7 @@ function decorate(lv, room, rng, put, take, isGround, W, H, cx, cy) {
   else if (k === 'crates') { scatter(O.CRATE, 3); scatter(O.BUSH, 2); scatter(O.TREE, 1); }
   else if (k === 'mushroom') { scatter(O.SPOREDEC ?? O.BUSH, 4); scatter(O.TREE, 2); scatter(O.POT, 2); }
   else if (k === 'rocks') { scatter(O.ROCK, 5 + rng.int(4)); scatter(O.BUSH, 1); }
-  else if (k === 'pool') {
-    // まんなかに 小さな水たまり
-    const px = Math.round(cx - 0.5) + 2, py = Math.round(cy - 0.5) + 2;
-    for (let oy = -3; oy <= 3; oy++)
-      for (let ox = -3; ox <= 3; ox++) {
-        const d = Math.hypot(ox * 0.9, oy * 1.25) + (fbm(ox * 0.7 + 3, oy * 0.7 + 5, room.seed) - 0.5) * 1.1;
-        if (d < 2.5 && isGround(px + ox, py + oy)) lv.setG(px + ox, py + oy, T.WATER);
-      }
-    scatter(O.ROCK, 2); scatter(O.BUSH, 2);
-  }
+  else if (k === 'pool') { scatter(O.ROCK, 3); scatter(O.BUSH, 3); }
   else if (k === 'bridge') { scatter(O.ROCK, 2); scatter(O.BUSH, 3); }
   else if (k === 'graveyard') { scatter(O.GRAVE, 5 + rng.int(3)); scatter(O.DEADTREE, 2); }
   else if (k === 'ruins') { scatter(O.PILLAR, 4); scatter(O.ROCK, 3); scatter(O.DEADTREE, 1); }

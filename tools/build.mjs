@@ -18,7 +18,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 // 依存の順番（先に読まれたものだけを参照できる）
 const ORDER = [
   'config', 'util', 'story', 'artdata', 'art', 'audio', 'fx',
-  'world', 'rooms', 'arena', 'dungeon', 'bubble', 'entities', 'hazard',
+  'world', 'island', 'rooms', 'arena', 'dungeon', 'bubble', 'entities', 'hazard',
   'render', 'input', 'boss', 'ui', 'save', 'main',
 ];
 

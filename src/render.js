@@ -7,6 +7,7 @@ import { SPR, TERRAIN_TILES, EDGE, PAL, makeCanvas } from './art.js';
 import { T, O, TERRAIN_NAME, TERRAIN_PRIO, OBJ_DEF } from './world.js';
 import * as FX from './fx.js';
 import { drawArenaBackdrop } from './arena.js';
+import { renderIslandCanvas } from './island.js';
 import { drawHazardsUnder, drawHazardsOver } from './hazard.js';
 
 export const view = {
@@ -340,8 +341,15 @@ export function drawScene(g) {
   if (level.kind === 'arena') {
     drawArenaBackdrop(ctx, g, camx, camy, view.w, view.h, performance.now() / 1000);
   } else {
-    ctx.fillStyle = level.island ? '#22403a' : level.kind === 'dungeon' ? '#0d0b12' : PAL.h;
+    ctx.fillStyle = level.island ? '#14282a' : level.kind === 'dungeon' ? '#0d0b12' : PAL.h;
     ctx.fillRect(0, 0, view.w, view.h);
+  }
+
+  // --- 島はタイルではなく 一枚の形として描く ---
+  if (level.island && level.shape) {
+    if (!level.islandCanvas)
+      level.islandCanvas = renderIslandCanvas(level.shape, { seed: level.shapeSeed ?? 1, kind: level.shapeKind });
+    ctx.drawImage(level.islandCanvas, -camx, -camy);
   }
 
   const x0 = Math.max(0, Math.floor(camx / TILE));
@@ -349,8 +357,8 @@ export function drawScene(g) {
   const x1 = Math.min(level.w - 1, Math.ceil((camx + view.w) / TILE));
   const y1 = Math.min(level.h - 1, Math.ceil((camy + view.h) / TILE));
 
-  // --- 地面 ---
-  for (let y = y0; y <= y1; y++) {
+  // --- 地面（島は上で描いてある）---
+  if (!level.island) for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
       const t = level.ground[y * level.w + x];
       if (t === T.VOID) continue;                  // 「向こう側」は背景がそのまま見える
@@ -362,7 +370,7 @@ export function drawScene(g) {
     }
   }
   // --- 地面のディザ境界 ---
-  for (let y = y0; y <= y1; y++) {
+  if (!level.island) for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
       const t = level.ground[y * level.w + x];
       if (t === T.VOID) continue;
@@ -380,9 +388,6 @@ export function drawScene(g) {
       }
     }
   }
-
-  // --- 島のふち ---
-  if (level.island) drawIslandEdges(ctx, level, x0, y0, x1, y1, camx, camy);
 
   // --- ボスの頭・腕（地面より上、キャラより下）---
   if (g.boss) g.boss.drawBack(ctx, camx, camy);
@@ -438,7 +443,7 @@ export function drawScene(g) {
   ctx.restore();
 
   // --- 木もれ日（屋外だけ）---
-  if (level.kind === 'field' && !level.dark) drawSunShafts(ctx, camx, camy);
+  if (level.kind === 'field' && !level.dark && !level.island) drawSunShafts(ctx, camx, camy);
 
   // --- かぶりつきの寄り絵 ---
   if (g.boss) g.boss.drawLungeOverlay(ctx, camx, camy, view.w, view.h);
@@ -471,34 +476,6 @@ export function drawScene(g) {
   }
   ctx.globalAlpha = 1;
   ctx.restore();
-}
-
-/** 島のふちに、こんもりした葉の帯を描く（参考画面の見た目に合わせて）*/
-function drawIslandEdges(ctx, level, x0, y0, x1, y1, camx, camy) {
-  const isVoid = (x, y) => !level.inb(x, y) || level.ground[y * level.w + x] === T.VOID;
-  const NB = [[0, -1], [0, 1], [-1, 0], [1, 0]];
-  for (let y = y0; y <= y1; y++) {
-    for (let x = x0; x <= x1; x++) {
-      if (isVoid(x, y)) continue;
-      const px = x * TILE - camx, py = y * TILE - camy;
-      for (const [ox, oy] of NB) {
-        if (!isVoid(x + ox, y + oy)) continue;
-        // その辺にそって 3 つのふくらみ
-        for (let i = 0; i < 3; i++) {
-          const t = (i + 0.5) / 3;
-          const jitter = (hash2(x * 4 + i, y * 4 + (ox + oy * 2), 991) - 0.5) * 2.2;
-          const r = 2.6 + hash2(x + i, y, 331) * 1.5;
-          let bx, by;
-          if (oy !== 0) { bx = px + t * TILE + jitter; by = py + (oy < 0 ? 1.5 : TILE - 1.5); }
-          else { bx = px + (ox < 0 ? 1.5 : TILE - 1.5); by = py + t * TILE + jitter; }
-          ctx.fillStyle = '#1d4a2b';
-          ctx.beginPath(); ctx.arc(bx, by, r + 0.9, 0, TAU); ctx.fill();
-          ctx.fillStyle = hash2(x, y + i, 77) < 0.5 ? '#54b463' : '#63c471';
-          ctx.beginPath(); ctx.arc(bx, by - 0.6, r, 0, TAU); ctx.fill();
-        }
-      }
-    }
-  }
 }
 
 /** ななめに差しこむ光。うっすらで十分。 */

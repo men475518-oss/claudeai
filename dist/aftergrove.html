@@ -2371,9 +2371,462 @@ function applyBuildings(level, list) {
 return { T, TERRAIN_NAME, TERRAIN_SOLID, TERRAIN_SLOW, TERRAIN_PRIO, O, OBJ_DEF, objSolid, Level, BUILDINGS, generateOverworld, layoutTown, applyBuildings };
 })();
 
+const __M_island = (function () {
+const { TILE } = __M_config;
+const { makeCanvas } = __M_art;
+const { makeRng, fbm, hash2, TAU } = __M_util;
+// ---------------------------------------------------------------------------
+// island.js — 島を「タイルの集まり」ではなく「なめらかな一枚の形」として描く
+//   輪郭は多角形で持ち、当たり判定だけタイルへ焼きこむ。
+//   これで 16px 刻みのギザギザが消え、参考画面のやわらかい島に近づく。
+// ---------------------------------------------------------------------------
+
+const DV = { n: [0, -1], s: [0, 1], e: [1, 0], w: [-1, 0] };
+
+// 参考画面から拾った色
+const C = {
+  base:   '#3f9b4e',
+  dark:   '#379046',
+  light:  '#4aa858',
+  rim1:   '#2f7d40',
+  rim2:   '#276a38',
+  hedgeD: '#1d5029',
+  hedgeA: '#46a054',
+  hedgeB: '#52ad5f',
+  path:   '#9a9060',
+  pathIn: '#b0a56e',
+  water:  '#3f6f9e',
+  waterD: '#33608c',
+  waterL: '#5f93c0',
+};
+
+// 島の種類ごとの 色あい（書いていない色は 上の C をそのまま使う）
+const THEMES = {
+  ash: {
+    base: '#6d6a5c', dark: '#5f5c4f', light: '#7c7969',
+    rim1: '#4b4940', rim2: '#3b3a33',
+    hedgeD: '#33322b', hedgeA: '#6a6759', hedgeB: '#787565',
+    path: '#8a8474', pathIn: '#9c9683',
+  },
+  graveyard: {
+    base: '#3a7b57', dark: '#33704f', light: '#458a62',
+    rim1: '#2a6244', rim2: '#22513a',
+    hedgeD: '#173f2b', hedgeA: '#3d8459', hedgeB: '#478f63',
+    path: '#8d876c', pathIn: '#a29b7b',
+  },
+  ruins: {
+    base: '#61915a', dark: '#578653', light: '#6d9d63',
+    rim1: '#457244', rim2: '#385f38',
+    hedgeD: '#254a2c', hedgeA: '#5f9257', hedgeB: '#6b9e61',
+  },
+  rocks: {
+    base: '#4f8f5b', dark: '#458452', light: '#5c9c65',
+    rim1: '#376f45', rim2: '#2c5c3a',
+  },
+  mushroom: {
+    base: '#48915a', dark: '#3f8752', light: '#529d63',
+    rim1: '#2f7448', rim2: '#26603c',
+    hedgeD: '#1c4c2e', hedgeA: '#4c9b5e', hedgeB: '#58a76a',
+  },
+  swamp: {
+    base: '#3d8459', dark: '#347951', light: '#4a9163',
+    rim1: '#2a6a47', rim2: '#22563b',
+  },
+};
+
+function theme(kind) {
+  const t = THEMES[kind];
+  return t ? { ...C, ...t } : C;
+}
+
+/**
+ * 島の形をつくる。すべてピクセル座標。
+ * @returns {{poly, corridors, curves, patches, pools, cx, cy}}
+ */
+function makeIslandShape(room, W, H, exits, opts = {}) {
+  const rng = makeRng((room.seed ^ 0x15A1D) >>> 0);
+  const w = W * TILE, h = H * TILE;
+  const cx = w / 2, cy = h / 2;
+  const flat = !!opts.flat;
+
+  const rx = w / 2 - TILE * 1.9;
+  const ry = h / 2 - TILE * 2.0;
+  const power = flat ? 3.2 : 1.85 + rng() * 0.55;
+  const wob = flat ? 0.05 : 0.16 + rng() * 0.08;
+
+  // 角度ごとの半径。まるみのあるひし形に ゆらぎを足す。
+  const N = 96;
+  const poly = [];
+  for (let i = 0; i < N; i++) {
+    const a = (i / N) * TAU;
+    const ca = Math.cos(a), sa = Math.sin(a);
+    // |x/rx|^p + |y/ry|^p = 1 を満たす半径
+    const denom = Math.pow(Math.abs(ca) / rx, power) + Math.pow(Math.abs(sa) / ry, power);
+    let r = Math.pow(denom, -1 / power);
+    r *= 1 + (fbm(ca * 1.7 + 5, sa * 1.7 + 5, room.seed) - 0.5) * 2 * wob;
+    poly.push({ x: cx + ca * r, y: cy + sa * r });
+  }
+  smoothPoly(poly, 2);
+
+  // --- 出口へのびる首と、そこへ向かう小道 ---
+  const corridors = [];
+  const curves = [];
+  const half = TILE * 1.15;
+  for (const dir of Object.keys(exits)) {
+    if (!exits[dir]) continue;
+    const [dx, dy] = DV[dir];
+    // 輪郭のどこまで島があるか
+    let edge = 0;
+    for (let t = 0; t < Math.max(w, h); t += 4) {
+      if (!pointInPoly(poly, cx + dx * t, cy + dy * t)) { edge = t; break; }
+    }
+    const inset = Math.max(0, edge - TILE);
+    if (dx !== 0) {
+      const x0 = dx > 0 ? cx + inset : 0;
+      const x1 = dx > 0 ? w : cx - inset;
+      corridors.push({ x: Math.min(x0, x1), y: cy - half, w: Math.abs(x1 - x0), h: half * 2, r: half });
+    } else {
+      const y0 = dy > 0 ? cy + inset : 0;
+      const y1 = dy > 0 ? h : cy - inset;
+      corridors.push({ x: cx - half, y: Math.min(y0, y1), w: half * 2, h: Math.abs(y1 - y0), r: half });
+    }
+    // 小道は 広場から 出口へ ゆるく曲がって伸びる
+    const end = { x: cx + dx * (w / 2 + TILE), y: cy + dy * (h / 2 + TILE) };
+    const bend = (rng() - 0.5) * TILE * 3.4;
+    const off = TILE * 0.9;
+    const start = { x: cx + dx * off + (dx !== 0 ? 0 : (rng() - 0.5) * off), y: cy + dy * off + (dy !== 0 ? 0 : (rng() - 0.5) * off) };
+    const mid = {
+      x: (start.x + end.x) / 2 + (dx !== 0 ? 0 : bend),
+      y: (start.y + end.y) / 2 + (dy !== 0 ? 0 : bend),
+    };
+    curves.push([start, mid, end]);
+  }
+
+  // --- 草の明暗パッチ ---
+  const patches = [];
+  for (let i = 0; i < 9; i++) {
+    const a = rng.angle();
+    const d = rng() * Math.min(rx, ry) * 0.85;
+    patches.push({
+      x: cx + Math.cos(a) * d, y: cy + Math.sin(a) * d,
+      r: TILE * (1.6 + rng() * 2.4), dark: rng() < 0.55, seed: (rng() * 1e6) | 0,
+    });
+  }
+
+  return { poly, corridors, curves, patches, pools: [], cx, cy, w, h };
+}
+
+/** 島の形を タイルの通行判定へ焼きこむ */
+function rasterizeIsland(lv, shape, T) {
+  for (let y = 0; y < lv.h; y++) {
+    for (let x = 0; x < lv.w; x++) {
+      const px = x * TILE + TILE / 2, py = y * TILE + TILE / 2;
+      let inside = pointInPoly(shape.poly, px, py);
+      if (!inside) {
+        for (const r of shape.corridors) {
+          const rad = Math.min(r.r || 8, r.w / 2, r.h / 2);
+          const qx = Math.max(r.x + rad, Math.min(px, r.x + r.w - rad));
+          const qy = Math.max(r.y + rad, Math.min(py, r.y + r.h - rad));
+          if (Math.hypot(px - qx, py - qy) <= rad) { inside = true; break; }
+        }
+      }
+      lv.setG(x, y, inside ? T.MOSS : T.VOID);
+    }
+  }
+  // 小道の上は 歩きやすい床（音や見た目の区別に使う）
+  for (const cur of shape.curves) {
+    for (let t = 0; t <= 1.001; t += 0.02) {
+      const p = quadAt(cur, t);
+      const tx = Math.floor(p.x / TILE), ty = Math.floor(p.y / TILE);
+      if (lv.inb(tx, ty) && lv.g(tx, ty) === T.MOSS) lv.setG(tx, ty, T.PATH);
+    }
+  }
+}
+
+/** 池をあける（見た目と当たり判定の両方） */
+/** 小道からいちばん離れた 池の置き場をさがす（タイル座標）*/
+function poolSpot(shape, rT) {
+  const need = (rT + 1.2) * TILE;
+  let best = null;
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * TAU;
+    for (const rad of [3.6, 3.0, 2.4]) {
+      const x = shape.cx + Math.cos(a) * rad * TILE;
+      const y = shape.cy + Math.sin(a) * rad * TILE;
+      // 島から はみ出さないか（8方向を見る）
+      let inside = true;
+      for (let k = 0; k < 8 && inside; k++) {
+        const b = (k / 8) * TAU;
+        if (!pointInPoly(shape.poly, x + Math.cos(b) * need, y + Math.sin(b) * need)) inside = false;
+      }
+      if (!inside) continue;
+      // 小道からの距離
+      let far = Infinity;
+      for (const cur of shape.curves)
+        for (let t = 0; t <= 1.0001; t += 1 / 14) {
+          const q = quadAt(cur, t);
+          far = Math.min(far, Math.hypot(q.x - x, q.y - y));
+        }
+      if (!best || far > best.far) best = { x, y, far };
+    }
+  }
+  if (!best) return { x: Math.round(shape.cx / TILE) + 1, y: Math.round(shape.cy / TILE) + 2 };
+  return { x: Math.round((best.x - 8) / TILE), y: Math.round((best.y - 8) / TILE) };
+}
+
+function addPool(lv, shape, T, cxT, cyT, rT, seed) {
+  const cx = cxT * TILE + 8, cy = cyT * TILE + 8;
+  shape.pools.push({ x: cx, y: cy, r: rT * TILE, seed });
+  for (let y = 0; y < lv.h; y++)
+    for (let x = 0; x < lv.w; x++) {
+      const px = x * TILE + 8, py = y * TILE + 8;
+      const d = Math.hypot((px - cx) / 1.15, (py - cy) * 1.15 / 1) / TILE;
+      const n = (fbm(x * 0.45, y * 0.45, seed) - 0.5) * 1.1;
+      if (d + n < rT && lv.g(x, y) !== T.VOID && lv.g(x, y) !== T.PATH) lv.setG(x, y, T.WATER);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 描画
+// ---------------------------------------------------------------------------
+
+function renderIslandCanvas(shape, room) {
+  const { w, h, cx, cy } = shape;
+  const C = theme(room.kind);
+  const cv = makeCanvas(w, h);
+  const c = cv.getContext('2d');
+
+  const outline = () => {
+    c.beginPath();
+    tracePoly(c, shape.poly);
+    for (const r of shape.corridors) capsule(c, r);
+  };
+
+  // --- 島の下に落ちる影（ぼかして「浮いている」ように）---
+  c.save();
+  c.shadowColor = 'rgba(4,14,12,0.85)';
+  c.shadowBlur = 18;
+  c.shadowOffsetY = 7;
+  outline();
+  c.fillStyle = 'rgba(4,14,12,0.9)';
+  c.fill();
+  c.shadowBlur = 34; c.shadowOffsetY = 12;
+  c.fill();
+  c.restore();
+
+  // --- 中身 ---
+  c.save();
+  outline();
+  c.clip();
+
+  c.fillStyle = C.base;
+  c.fillRect(0, 0, w, h);
+
+  // 大きくやわらかい明暗
+  for (const p of shape.patches) {
+    c.fillStyle = p.dark ? C.dark : C.light;
+    blobPath(c, p.x, p.y, p.r, p.seed);
+    c.fill();
+  }
+
+  // まんなかのやわらかい光
+  const gr = c.createRadialGradient(cx, cy - h * 0.05, 0, cx, cy - h * 0.05, Math.max(w, h) * 0.40);
+  gr.addColorStop(0, 'rgba(255,255,255,0.085)');
+  gr.addColorStop(1, 'rgba(255,255,255,0)');
+  c.fillStyle = gr;
+  c.fillRect(0, 0, w, h);
+
+  // ほんのりの粒（近づかないと分からないくらい）
+  const img = c.getImageData(0, 0, w, h);
+  for (let i = 0; i < w * h; i++) {
+    const x = i % w, y = (i / w) | 0;
+    const r = hash2(x, y, room.seed);
+    if (r > 0.955) { const o = i * 4; img.data[o] += 8; img.data[o + 1] += 10; img.data[o + 2] += 6; }
+    else if (r < 0.045) { const o = i * 4; img.data[o] -= 8; img.data[o + 1] -= 9; img.data[o + 2] -= 6; }
+  }
+  c.putImageData(img, 0, 0);
+
+  // ふちの濃い緑（内側だけ見えるよう 太めに ストローク）。
+  // うすい層を重ねて、島がすこし ふくらんで見えるようにする。
+  c.lineJoin = 'round';
+  c.globalAlpha = 0.35; c.lineWidth = 40; c.strokeStyle = C.rim1; outline(); c.stroke();
+  c.globalAlpha = 0.55; c.lineWidth = 24; c.strokeStyle = C.rim1; outline(); c.stroke();
+  c.globalAlpha = 1;
+  c.lineWidth = 14; c.strokeStyle = C.rim1; outline(); c.stroke();
+  c.lineWidth = 6;  c.strokeStyle = C.rim2; outline(); c.stroke();
+
+  // 池（小道より先に。道は池の上を わたる）
+  for (const p of shape.pools) drawPool(c, p, C);
+
+  // 小道
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  // まんなかの広場
+  c.fillStyle = C.path;
+  blobPath(c, cx, cy, TILE * 1.3, room.seed + 21);
+  c.fill();
+  for (const cur of shape.curves) { c.lineWidth = 14; c.strokeStyle = C.path; strokeQuad(c, cur); }
+  for (const cur of shape.curves) { c.lineWidth = 8; c.strokeStyle = C.pathIn; strokeQuad(c, cur); }
+
+  c.restore();
+
+  // --- 生け垣（輪郭の上にのせる）---
+  drawHedge(c, shape, room.seed, C);
+  return cv;
+}
+
+function drawPool(c, p, C) {
+  c.save();
+  blobPath(c, p.x, p.y, p.r, p.seed, 0.9, 1.25);
+  c.fillStyle = '#2b5a44';
+  c.fill();
+  c.clip();
+  blobPath(c, p.x, p.y, p.r - 1.5, p.seed, 0.9, 1.25);
+  c.fillStyle = '#57937f'; c.fill();
+  blobPath(c, p.x, p.y, p.r - 4, p.seed, 0.9, 1.25);
+  c.fillStyle = C.water; c.fill();
+  c.fillStyle = C.waterD;
+  blobPath(c, p.x, p.y + p.r * 0.25, p.r * 0.7, p.seed + 3, 0.9, 1.25);
+  c.fill();
+  c.fillStyle = C.waterL;
+  c.globalAlpha = 0.55;
+  for (let i = 0; i < 7; i++) {
+    const j = hash2(i, 4, p.seed);
+    const yy = p.y - p.r * 0.62 + i * (p.r * 0.23) + j * 2;
+    const xx = p.x - p.r * 0.5 + hash2(i, 5, p.seed) * p.r * 0.7;
+    c.fillRect(xx, yy, 3 + j * 5, 1);
+  }
+  c.globalAlpha = 1;
+  c.restore();
+}
+
+/** 輪郭にそって こんもりした葉をならべる */
+function drawHedge(c, shape, seed, C) {
+  const pts = resample(shape.poly, 5.5);
+  const corridorNear = (x, y) => shape.corridors.some(r =>
+    x > r.x - 3 && x < r.x + r.w + 3 && y > r.y - 3 && y < r.y + r.h + 3);
+
+  const bumps = [];
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i];
+    if (corridorNear(p.x, p.y)) continue;
+    const j = hash2(i, 1, seed);
+    bumps.push({ x: p.x + (j - 0.5) * 1.8, y: p.y + (hash2(i, 2, seed) - 0.5) * 1.8, r: 2.6 + j * 1.3, i });
+  }
+  // 首のふちにも すこしだけ
+  for (const r of shape.corridors) {
+    const vertical = r.h > r.w;
+    const n = Math.floor((vertical ? r.h : r.w) / 5.5);
+    for (let k = 0; k < n; k++) {
+      const t = (k + 0.5) / n;
+      for (const side of [-1, 1]) {
+        const x = vertical ? (side < 0 ? r.x : r.x + r.w) : r.x + r.w * t;
+        const y = vertical ? r.y + r.h * t : (side < 0 ? r.y : r.y + r.h);
+        if (pointInPoly(shape.poly, x, y)) continue;
+        const j = hash2(k, side + 5, seed);
+        bumps.push({ x: x + (j - 0.5) * 1.6, y: y + (hash2(k, 7, seed) - 0.5) * 1.6, r: 2.6 + j * 1.3, i: k });
+      }
+    }
+  }
+
+  c.fillStyle = C.hedgeD;
+  for (const b of bumps) { c.beginPath(); c.arc(b.x, b.y, b.r + 1.4, 0, TAU); c.fill(); }
+  for (const b of bumps) {
+    c.fillStyle = hash2(b.i, 9, seed) < 0.5 ? C.hedgeA : C.hedgeB;
+    c.beginPath(); c.arc(b.x, b.y - 0.6, b.r, 0, TAU); c.fill();
+  }
+}
+
+// --- 幾何のこまごま -----------------------------------------------------------
+
+function smoothPoly(p, times) {
+  for (let t = 0; t < times; t++) {
+    const copy = p.map(v => ({ ...v }));
+    for (let i = 0; i < p.length; i++) {
+      const a = copy[(i - 1 + p.length) % p.length];
+      const b = copy[i];
+      const d = copy[(i + 1) % p.length];
+      p[i].x = (a.x + b.x * 2 + d.x) / 4;
+      p[i].y = (a.y + b.y * 2 + d.y) / 4;
+    }
+  }
+}
+
+/** 角のまるい長方形（島の首）*/
+function capsule(c, r) {
+  const rad = Math.min(r.r || 8, r.w / 2, r.h / 2);
+  c.moveTo(r.x + rad, r.y);
+  c.arcTo(r.x + r.w, r.y, r.x + r.w, r.y + r.h, rad);
+  c.arcTo(r.x + r.w, r.y + r.h, r.x, r.y + r.h, rad);
+  c.arcTo(r.x, r.y + r.h, r.x, r.y, rad);
+  c.arcTo(r.x, r.y, r.x + r.w, r.y, rad);
+  c.closePath();
+}
+
+function tracePoly(c, p) {
+  c.moveTo(p[0].x, p[0].y);
+  for (let i = 1; i < p.length; i++) {
+    const a = p[i], b = p[(i + 1) % p.length];
+    c.quadraticCurveTo(a.x, a.y, (a.x + b.x) / 2, (a.y + b.y) / 2);
+  }
+  c.closePath();
+}
+
+function pointInPoly(p, x, y) {
+  let inside = false;
+  for (let i = 0, j = p.length - 1; i < p.length; j = i++) {
+    if ((p[i].y > y) !== (p[j].y > y)
+      && x < ((p[j].x - p[i].x) * (y - p[i].y)) / (p[j].y - p[i].y) + p[i].x) inside = !inside;
+  }
+  return inside;
+}
+
+function resample(p, step) {
+  const out = [];
+  for (let i = 0; i < p.length; i++) {
+    const a = p[i], b = p[(i + 1) % p.length];
+    const d = Math.hypot(b.x - a.x, b.y - a.y);
+    const n = Math.max(1, Math.round(d / step));
+    for (let k = 0; k < n; k++) {
+      out.push({ x: a.x + (b.x - a.x) * (k / n), y: a.y + (b.y - a.y) * (k / n) });
+    }
+  }
+  return out;
+}
+
+function quadAt(cur, t) {
+  const [a, b, d] = cur;
+  const u = 1 - t;
+  return { x: u * u * a.x + 2 * u * t * b.x + t * t * d.x, y: u * u * a.y + 2 * u * t * b.y + t * t * d.y };
+}
+
+function strokeQuad(c, cur) {
+  c.beginPath();
+  c.moveTo(cur[0].x, cur[0].y);
+  c.quadraticCurveTo(cur[1].x, cur[1].y, cur[2].x, cur[2].y);
+  c.stroke();
+}
+
+function blobPath(c, x, y, r, seed, sx = 1, sy = 1) {
+  const N = 30;
+  const pts = [];
+  for (let i = 0; i < N; i++) {
+    const a = (i / N) * TAU;
+    const rr = r * (0.78 + fbm(Math.cos(a) * 1.1 + 9, Math.sin(a) * 1.1 + 9, seed) * 0.48);
+    pts.push({ x: x + Math.cos(a) * rr * sx, y: y + Math.sin(a) * rr / sy });
+  }
+  smoothPoly(pts, 3);
+  c.beginPath();
+  tracePoly(c, pts);
+}
+
+
+return { makeIslandShape, rasterizeIsland, poolSpot, addPool, renderIslandCanvas, pointInPoly };
+})();
+
 const __M_rooms = (function () {
 const { Level, T, O, BUILDINGS, applyBuildings } = __M_world;
-const { makeRng, fbm, clamp } = __M_util;
+const { makeRng, clamp } = __M_util;
+const { makeIslandShape, rasterizeIsland, addPool, poolSpot } = __M_island;
 // ---------------------------------------------------------------------------
 // rooms.js — 世界は「小さな島」がいくつも つながった かたち
 //   ひとつの島がひとつの画面。端の小道から となりの島へ移る。
@@ -2595,88 +3048,54 @@ function buildRoomLevel(world, room) {
   const rng = makeRng(room.seed);
 
   const cx = W / 2, cy = H / 2;
-  const rx = W / 2 - 1.9, ry = H / 2 - 2.0;
   const flat = room.kind === 'town' || room.kind === 'home';
-  const power = flat ? 2.8 : 1.45 + rng() * 0.4;   // 1.0 でひし形、2.0 で楕円
-  const wob = flat ? 0.10 : 0.30 + rng() * 0.18;
 
-  const inside = (x, y) => {
-    const dx = Math.abs((x + 0.5 - cx) / rx);
-    const dy = Math.abs((y + 0.5 - cy) / ry);
-    const d = Math.pow(dx, power) + Math.pow(dy, power);
-    const n = (fbm(x / 4.5, y / 4.5, room.seed) - 0.5) * wob;
-    return d + n <= 1;
-  };
+  // 島の形は多角形で持ち、通行判定だけタイルへ焼く（見た目は island.js が描く）
+  const shape = makeIslandShape(room, W, H, room.exits, { flat });
+  rasterizeIsland(lv, shape, T);
+  lv.shape = shape;
+  lv.shapeSeed = room.seed;
+  lv.shapeKind = room.kind;
 
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++)
-      if (inside(x, y)) lv.setG(x, y, T.MOSS);
+  const isGround = (x, y) => lv.inb(x, y) && lv.g(x, y) !== T.VOID;
 
-  // --- 出口へのびる くびれた通路（島の外がわだけ掘る）---
+  // --- 出口（島のはしの小道）---
   const gateways = {};
-  const midX = Math.round(cx - 0.5), midY = Math.round(cy - 0.5);
+  const midX = clamp(Math.floor(cx), 0, W - 1), midY = clamp(Math.floor(cy), 0, H - 1);
   for (const dir of DIRS) {
     if (!room.exits[dir]) continue;
-    const [dx, dy] = DV[dir];
-    // まず 島のふちまで進む
-    let x = midX, y = midY;
-    while (lv.inb(x + dx, y + dy) && inside(x + dx, y + dy)) { x += dx; y += dy; }
-    // そこから 外へ 3 マス幅の首を のばす
-    let gx = x, gy = y;
-    while (lv.inb(x, y)) {
-      for (let o = -1; o <= 1; o++) {
-        const px = dx !== 0 ? x : x + o;
-        const py = dy !== 0 ? y : y + o;
-        if (lv.inb(px, py)) lv.setG(px, py, T.MOSS);
-      }
-      gx = x; gy = y;
-      x += dx; y += dy;
-    }
-    gateways[dir] = { x: clamp(gx, 0, W - 1), y: clamp(gy, 0, H - 1) };
+    if (dir === 'n') gateways.n = { x: midX, y: 0 };
+    else if (dir === 's') gateways.s = { x: midX, y: H - 1 };
+    else if (dir === 'e') gateways.e = { x: W - 1, y: midY };
+    else gateways.w = { x: 0, y: midY };
+  }
+  for (const dir of Object.keys(gateways)) {
+    const gw = gateways[dir];
+    lv.setG(gw.x, gw.y, T.PATH);
+    lv.setO(gw.x, gw.y, O.GATEWAY);
   }
 
-  // --- ふちの濃い緑 ---
-  const isGround = (x, y) => lv.inb(x, y) && lv.g(x, y) !== T.VOID;
-  const edgeDist = new Int8Array(W * H).fill(9);
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) {
-      if (!isGround(x, y)) continue;
-      let near = 9;
-      for (let oy = -2; oy <= 2; oy++)
-        for (let ox = -2; ox <= 2; ox++)
-          if (!isGround(x + ox, y + oy)) near = Math.min(near, Math.max(Math.abs(ox), Math.abs(oy)));
-      edgeDist[y * W + x] = near;
-    }
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) {
-      if (!isGround(x, y)) continue;
-      if (edgeDist[y * W + x] <= 1) lv.setG(x, y, T.ISLE_D);
-      else if (fbm(x / 3.2 + 11, y / 3.2 + 7, room.seed + 5) > 0.60) lv.setG(x, y, T.ISLE_L);
-    }
-
-  // --- 小道（中心から 各出口へ）---
-  for (const dir of Object.keys(gateways)) {
-    const gwe = gateways[dir];
-    const [dx, dy] = DV[dir];
-    let x = midX, y = midY;
-    for (let step = 0; step < Math.max(W, H) + 2; step++) {
-      const jig = Math.round(Math.sin(step * 0.45 + (room.seed % 11)) * 1.3);
-      const wide = (step % 3 === 0) ? 2 : 1;
-      for (let w = 0; w < wide; w++) {
-        const px = dx !== 0 ? x : x + jig + w;
-        const py = dy !== 0 ? y : y + jig + w;
-        if (isGround(px, py)) lv.setG(px, py, T.PATH);
-      }
-      if (x === gwe.x && y === gwe.y) break;
-      x += dx; y += dy;
-      if (x < 0 || y < 0 || x >= W || y >= H) break;
-    }
+  // --- 池のある島 ---
+  if (room.kind === 'pool') {
+    const ps = poolSpot(shape, 2.6);
+    addPool(lv, shape, T, ps.x, ps.y, 2.6, room.seed);
   }
 
-  // --- 通り道の入口に しるし（となりへ行く床）---
-  for (const dir of Object.keys(gateways)) {
-    const gwe = gateways[dir];
-    lv.setO(gwe.x, gwe.y, O.GATEWAY);
+  // --- 建物（家の島と 町）---
+  let buildings = [];
+  if (flat) {
+    buildings = world.buildings.filter(b => b.roomId === room.id);
+    const plots = room.kind === 'home'
+      ? [{ dx: -2, dy: -5, w: 4, h: 3 }]
+      : [{ dx: -6, dy: -6, w: 4, h: 3 }, { dx: -1, dy: -7, w: 4, h: 3 }, { dx: 3, dy: -5, w: 4, h: 3 },
+         { dx: -6, dy: -1, w: 4, h: 3 }, { dx: 2, dy: 0, w: 4, h: 3 }, { dx: -3, dy: 4, w: 4, h: 3 }];
+    buildings.forEach((b, i) => {
+      const pl = plots[i % plots.length];
+      b.x = Math.round(cx + pl.dx); b.y = Math.round(cy + pl.dy);
+      b.w = pl.w; b.h = pl.h;
+    });
+    lv.buildings = buildings;
+    applyBuildings(lv, buildings);
   }
 
   // --- 中身 ---
@@ -2685,17 +3104,33 @@ function buildRoomLevel(world, room) {
     for (let x = 1; x < W - 1; x++) {
       if (!isGround(x, y) || lv.o(x, y) !== O.NONE) continue;
       if (lv.g(x, y) === T.PATH) continue;
+      // ふちギリギリに置くと 絵が島から はみ出して見える
+      if (!isGround(x - 1, y) || !isGround(x + 1, y)
+        || !isGround(x, y - 1) || !isGround(x, y + 1)) continue;
       const d = Math.hypot(x - cx, y - cy);
       if (d < 2.2) continue;                       // まんなかは あけておく
       free.push({ x, y, d });
     }
+  // 小さな島で 置き場がなくなったら ふち条件をゆるめる
+  if (free.length < 14) {
+    for (let y = 1; y < H - 1; y++)
+      for (let x = 1; x < W - 1; x++) {
+        if (!isGround(x, y) || lv.o(x, y) !== O.NONE) continue;
+        if (lv.g(x, y) === T.PATH) continue;
+        if (Math.hypot(x - cx, y - cy) < 2.2) continue;
+        if (free.some(f => f.x === x && f.y === y)) continue;
+        free.push({ x, y, d: Math.hypot(x - cx, y - cy) });
+      }
+  }
   rng.shuffle(free);
   const take = () => free.pop();
   /** 大きく描くものは 島のふちから離れた場所へ */
+  const nearBuilding = (x, y) => buildings.some(b =>
+    x >= b.x - 2 && x <= b.x + b.w + 1 && y >= b.y - 1 && y <= b.y + b.h + 2);
   const takeInner = () => {
     for (let i = free.length - 1; i >= 0; i--) {
       const c = free[i];
-      let ok = true;
+      let ok = !nearBuilding(c.x, c.y);
       for (let oy = -2; oy <= 2 && ok; oy++)
         for (let ox = -2; ox <= 2 && ok; ox++)
           if (!isGround(c.x + ox, c.y + oy)) ok = false;
@@ -2714,26 +3149,6 @@ function buildRoomLevel(world, room) {
     return null;
   };
 
-  // --- 建物（家の島と 町）---
-  let buildings = [];
-  if (room.kind === 'home' || room.kind === 'town') {
-    buildings = world.buildings.filter(b => b.roomId === room.id);
-    const plots = room.kind === 'home'
-      ? [{ dx: -2, dy: -5, w: 4, h: 3 }]
-      : [{ dx: -6, dy: -6, w: 4, h: 3 }, { dx: -1, dy: -7, w: 4, h: 3 }, { dx: 3, dy: -5, w: 4, h: 3 },
-         { dx: -6, dy: -1, w: 4, h: 3 }, { dx: 2, dy: 0, w: 4, h: 3 }, { dx: -3, dy: 4, w: 4, h: 3 }];
-    buildings.forEach((b, i) => {
-      const pl = plots[i % plots.length];
-      b.x = Math.round(cx + pl.dx); b.y = Math.round(cy + pl.dy);
-      b.w = pl.w; b.h = pl.h;
-      for (let y = b.y - 1; y < b.y + b.h + 1; y++)
-        for (let x = b.x - 1; x < b.x + b.w + 1; x++)
-          if (lv.inb(x, y)) lv.setG(x, y, lv.g(x, y) === T.VOID ? T.MOSS : lv.g(x, y));
-    });
-    lv.buildings = buildings;
-    applyBuildings(lv, buildings);
-  }
-
   decorate(lv, room, rng, put, take, isGround, W, H, cx, cy);
 
   // --- 特別なもの ---
@@ -2745,7 +3160,7 @@ function buildRoomLevel(world, room) {
     spots.cave = s;
   }
   if (room.content.gate) {
-    const s = { x: Math.round(cx - 0.5), y: Math.max(2, Math.round(cy - ry * 0.55)) };
+    const s = { x: Math.round(cx - 0.5), y: Math.max(2, Math.round(cy - H * 0.22)) };
     for (let oy = -1; oy <= 1; oy++)
       for (let ox = -2; ox <= 2; ox++)
         if (isGround(s.x + ox, s.y + oy)) { lv.setG(s.x + ox, s.y + oy, T.STONE); lv.setO(s.x + ox, s.y + oy, O.NONE); }
@@ -2802,16 +3217,7 @@ function decorate(lv, room, rng, put, take, isGround, W, H, cx, cy) {
   else if (k === 'crates') { scatter(O.CRATE, 3); scatter(O.BUSH, 2); scatter(O.TREE, 1); }
   else if (k === 'mushroom') { scatter(O.SPOREDEC ?? O.BUSH, 4); scatter(O.TREE, 2); scatter(O.POT, 2); }
   else if (k === 'rocks') { scatter(O.ROCK, 5 + rng.int(4)); scatter(O.BUSH, 1); }
-  else if (k === 'pool') {
-    // まんなかに 小さな水たまり
-    const px = Math.round(cx - 0.5) + 2, py = Math.round(cy - 0.5) + 2;
-    for (let oy = -3; oy <= 3; oy++)
-      for (let ox = -3; ox <= 3; ox++) {
-        const d = Math.hypot(ox * 0.9, oy * 1.25) + (fbm(ox * 0.7 + 3, oy * 0.7 + 5, room.seed) - 0.5) * 1.1;
-        if (d < 2.5 && isGround(px + ox, py + oy)) lv.setG(px + ox, py + oy, T.WATER);
-      }
-    scatter(O.ROCK, 2); scatter(O.BUSH, 2);
-  }
+  else if (k === 'pool') { scatter(O.ROCK, 3); scatter(O.BUSH, 3); }
   else if (k === 'bridge') { scatter(O.ROCK, 2); scatter(O.BUSH, 3); }
   else if (k === 'graveyard') { scatter(O.GRAVE, 5 + rng.int(3)); scatter(O.DEADTREE, 2); }
   else if (k === 'ruins') { scatter(O.PILLAR, 4); scatter(O.ROCK, 3); scatter(O.DEADTREE, 1); }
@@ -4373,6 +4779,7 @@ const { SPR, TERRAIN_TILES, EDGE, PAL, makeCanvas } = __M_art;
 const { T, O, TERRAIN_NAME, TERRAIN_PRIO, OBJ_DEF } = __M_world;
 const FX = __M_fx;
 const { drawArenaBackdrop } = __M_arena;
+const { renderIslandCanvas } = __M_island;
 const { drawHazardsUnder, drawHazardsOver } = __M_hazard;
 // ---------------------------------------------------------------------------
 // render.js — カメラ・タイル描画・奥行きソート・ダンジョンの明かり
@@ -4709,8 +5116,15 @@ function drawScene(g) {
   if (level.kind === 'arena') {
     drawArenaBackdrop(ctx, g, camx, camy, view.w, view.h, performance.now() / 1000);
   } else {
-    ctx.fillStyle = level.island ? '#22403a' : level.kind === 'dungeon' ? '#0d0b12' : PAL.h;
+    ctx.fillStyle = level.island ? '#14282a' : level.kind === 'dungeon' ? '#0d0b12' : PAL.h;
     ctx.fillRect(0, 0, view.w, view.h);
+  }
+
+  // --- 島はタイルではなく 一枚の形として描く ---
+  if (level.island && level.shape) {
+    if (!level.islandCanvas)
+      level.islandCanvas = renderIslandCanvas(level.shape, { seed: level.shapeSeed ?? 1, kind: level.shapeKind });
+    ctx.drawImage(level.islandCanvas, -camx, -camy);
   }
 
   const x0 = Math.max(0, Math.floor(camx / TILE));
@@ -4718,8 +5132,8 @@ function drawScene(g) {
   const x1 = Math.min(level.w - 1, Math.ceil((camx + view.w) / TILE));
   const y1 = Math.min(level.h - 1, Math.ceil((camy + view.h) / TILE));
 
-  // --- 地面 ---
-  for (let y = y0; y <= y1; y++) {
+  // --- 地面（島は上で描いてある）---
+  if (!level.island) for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
       const t = level.ground[y * level.w + x];
       if (t === T.VOID) continue;                  // 「向こう側」は背景がそのまま見える
@@ -4731,7 +5145,7 @@ function drawScene(g) {
     }
   }
   // --- 地面のディザ境界 ---
-  for (let y = y0; y <= y1; y++) {
+  if (!level.island) for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
       const t = level.ground[y * level.w + x];
       if (t === T.VOID) continue;
@@ -4749,9 +5163,6 @@ function drawScene(g) {
       }
     }
   }
-
-  // --- 島のふち ---
-  if (level.island) drawIslandEdges(ctx, level, x0, y0, x1, y1, camx, camy);
 
   // --- ボスの頭・腕（地面より上、キャラより下）---
   if (g.boss) g.boss.drawBack(ctx, camx, camy);
@@ -4807,7 +5218,7 @@ function drawScene(g) {
   ctx.restore();
 
   // --- 木もれ日（屋外だけ）---
-  if (level.kind === 'field' && !level.dark) drawSunShafts(ctx, camx, camy);
+  if (level.kind === 'field' && !level.dark && !level.island) drawSunShafts(ctx, camx, camy);
 
   // --- かぶりつきの寄り絵 ---
   if (g.boss) g.boss.drawLungeOverlay(ctx, camx, camy, view.w, view.h);
@@ -4840,34 +5251,6 @@ function drawScene(g) {
   }
   ctx.globalAlpha = 1;
   ctx.restore();
-}
-
-/** 島のふちに、こんもりした葉の帯を描く（参考画面の見た目に合わせて）*/
-function drawIslandEdges(ctx, level, x0, y0, x1, y1, camx, camy) {
-  const isVoid = (x, y) => !level.inb(x, y) || level.ground[y * level.w + x] === T.VOID;
-  const NB = [[0, -1], [0, 1], [-1, 0], [1, 0]];
-  for (let y = y0; y <= y1; y++) {
-    for (let x = x0; x <= x1; x++) {
-      if (isVoid(x, y)) continue;
-      const px = x * TILE - camx, py = y * TILE - camy;
-      for (const [ox, oy] of NB) {
-        if (!isVoid(x + ox, y + oy)) continue;
-        // その辺にそって 3 つのふくらみ
-        for (let i = 0; i < 3; i++) {
-          const t = (i + 0.5) / 3;
-          const jitter = (hash2(x * 4 + i, y * 4 + (ox + oy * 2), 991) - 0.5) * 2.2;
-          const r = 2.6 + hash2(x + i, y, 331) * 1.5;
-          let bx, by;
-          if (oy !== 0) { bx = px + t * TILE + jitter; by = py + (oy < 0 ? 1.5 : TILE - 1.5); }
-          else { bx = px + (ox < 0 ? 1.5 : TILE - 1.5); by = py + t * TILE + jitter; }
-          ctx.fillStyle = '#1d4a2b';
-          ctx.beginPath(); ctx.arc(bx, by, r + 0.9, 0, TAU); ctx.fill();
-          ctx.fillStyle = hash2(x, y + i, 77) < 0.5 ? '#54b463' : '#63c471';
-          ctx.beginPath(); ctx.arc(bx, by - 0.6, r, 0, TAU); ctx.fill();
-        }
-      }
-    }
-  }
 }
 
 /** ななめに差しこむ光。うっすらで十分。 */
