@@ -241,4 +241,3 @@ export function clearHeld() {
   input.aHold = 0;
 }
 
-export { CHARGE_HOLD };

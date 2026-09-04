@@ -29,7 +29,7 @@ function rleDecode(str, len) {
 }
 
 export function hasSave() {
-  try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; }
+  try { return !!localStorage.getItem(SAVE_KEY); } catch { return false; }
 }
 
 export function saveGame(g) {
@@ -59,7 +59,7 @@ export function saveGame(g) {
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
     return true;
   } catch (e) {
-    console.warn('save failed', e);
+    console.warn('セーブに失敗しました', e);
     return false;
   }
 }
@@ -71,7 +71,7 @@ export function loadSaveData() {
     const d = JSON.parse(raw);
     if (!d || d.v !== 1) return null;
     return d;
-  } catch (e) { return null; }
+  } catch { return null; }
 }
 
 export function applySave(g, d) {
@@ -97,5 +97,5 @@ export function applySave(g, d) {
 }
 
 export function deleteSave() {
-  try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* ignore */ }
+  try { localStorage.removeItem(SAVE_KEY); } catch { /* 消せなくても問題ない */ }
 }

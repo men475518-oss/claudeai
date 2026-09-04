@@ -3,11 +3,11 @@
 //   すべて実画面（CSS px）へ描画する。日本語はシステムフォントで鮮明に。
 // ---------------------------------------------------------------------------
 import { UI, FONT, TILE } from './config.js';
-import { clamp, lerp, TAU, formatTime } from './util.js';
+import { clamp, TAU, formatTime } from './util.js';
 import { SPR, PAL, silhouette, makeCanvas } from './art.js';
 import { view } from './render.js';
-import { input, setButtons } from './input.js';
-import { T, O, TERRAIN_NAME, BUILDINGS } from './world.js';
+import { input } from './input.js';
+import { O, TERRAIN_NAME } from './world.js';
 import { sfx } from './audio.js';
 
 export const ui = {
@@ -148,8 +148,7 @@ export function updateDialog(dt) {
   dialog.chars += dt * 52;
   const done = dialog.chars >= page.length;
 
-  let advance = input.aPressed || input.gTap;
-  for (const t of input.taps) advance = true;
+  const advance = input.aPressed || input.gTap || input.taps.length > 0;
   if (dialog.choices && done) {
     // 選択肢はボタンで処理する
     return;
@@ -703,10 +702,9 @@ export function drawTitle(ctx, g, t, canContinue) {
   txt(ctx, '— ちいさな村を、もういちど —', W / 2, H * 0.20 + 64 * S, { size: 11 * S, align: 'center', color: '#8d8496' });
 
   const bw = Math.min(240 * S, W - 60 * S), bh = 46 * S;
-  const bx = (W - bw) / 2;
-  let by = H * 0.50;
+  const by = H * 0.50;
   const btn = (label, sub, y, hot) => {
-    panel(ctx, bx, y, bw, bh, { r: 10 * S, fill: hot ? 'rgba(90,70,110,0.92)' : 'rgba(24,19,32,0.9)', edge: hot ? UI.gold : UI.panelEdge });
+    panel(ctx, (W - bw) / 2, y, bw, bh, { r: 10 * S, fill: hot ? 'rgba(90,70,110,0.92)' : 'rgba(24,19,32,0.9)', edge: hot ? UI.gold : UI.panelEdge });
     txt(ctx, label, W / 2, y + (sub ? 8 * S : 14 * S), { size: 15 * S, align: 'center', color: UI.ink, outline: false });
     if (sub) txt(ctx, sub, W / 2, y + 27 * S, { size: 10.5 * S, align: 'center', color: UI.inkDim, outline: false });
   };
@@ -724,7 +722,6 @@ export function drawTitle(ctx, g, t, canContinue) {
 export function titleButtons(canContinue) {
   const S = ui.S, W = view.cssW, H = view.cssH;
   const bw = Math.min(240 * S, W - 60 * S), bh = 46 * S;
-  const bx = (W - bw) / 2;
   const by = H * 0.50;
   const list = [{ id: 'title0', x: W / 2, y: by + bh / 2, hw: bw / 2, hh: bh / 2 }];
   if (canContinue) list.push({ id: 'title1', x: W / 2, y: by + bh + 12 * S + bh / 2, hw: bw / 2, hh: bh / 2 });

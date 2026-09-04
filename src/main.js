@@ -3,16 +3,16 @@
 // main.js : 全体の進行・状態遷移・当たり判定の解決
 // ---------------------------------------------------------------------------
 import { TILE, PLAYER, UI } from './config.js';
-import { clamp, dist, makeRng, hashSeed, DIR_VEC, formatTime } from './util.js';
+import { clamp, dist, DIR_VEC, formatTime } from './util.js';
 import { buildArt, SPR, PAL } from './art.js';
 import { initInput, updateInput, endInputFrame, input, setButtons, clearHeld } from './input.js';
 import { initAudio, sfx, playMusic, stopMusic, toggleMute, isMuted, resumeAudio, duckMusic } from './audio.js';
 import * as R from './render.js';
 import * as FX from './fx.js';
 import * as UIx from './ui.js';
-import { generateOverworld, layoutTown, applyBuildings, Level, T, O, OBJ_DEF, BUILDINGS, TERRAIN_NAME } from './world.js';
+import { generateOverworld, layoutTown, applyBuildings, O, OBJ_DEF, BUILDINGS, TERRAIN_NAME } from './world.js';
 import { generateDungeon } from './dungeon.js';
-import { Player, Enemy, Pickup, Projectile, Npc, Bomb, ENEMY_DEF } from './entities.js';
+import { Player, Enemy, Pickup, Projectile, Npc, Bomb } from './entities.js';
 import { hasSave, saveGame, loadSaveData, applySave, deleteSave } from './save.js';
 
 const canvas = document.getElementById('screen');

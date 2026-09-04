@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 import { TILE, VIEW_W, VIEW_H_MIN, VIEW_H_MAX } from './config.js';
 import { clamp, hash2, lerp, TAU } from './util.js';
-import { SPR, TERRAIN_TILES, EDGE, TERRAIN_COLOR, PAL, makeCanvas } from './art.js';
+import { SPR, TERRAIN_TILES, EDGE, PAL, makeCanvas } from './art.js';
 import { T, O, TERRAIN_NAME, TERRAIN_PRIO, OBJ_DEF } from './world.js';
 import * as FX from './fx.js';
 

@@ -2,7 +2,7 @@
 // world.js — タイル地図・地形定義・オーバーワールド生成
 // ---------------------------------------------------------------------------
 import { TILE, WORLD_W, WORLD_H } from './config.js';
-import { makeRng, fbm, ridge, hash2, clamp, dist } from './util.js';
+import { makeRng, fbm, ridge, hash2, clamp } from './util.js';
 
 // --- 地形 ------------------------------------------------------------------
 export const T = {
@@ -122,8 +122,6 @@ export const BUILDINGS = [
 ];
 
 // --- オーバーワールド生成 --------------------------------------------------
-
-const BIOME = { PLAIN: 0, FOREST: 1, BEACH: 2, MARSH: 3, ROCK: 4, ASH: 5 };
 
 function biomeAt(x, y, seed, sea) {
   const nx = x / 42, ny = y / 42;

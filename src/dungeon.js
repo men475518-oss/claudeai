@@ -2,7 +2,7 @@
 // dungeon.js — ダンジョン（洞窟・神殿）の自動生成
 // ---------------------------------------------------------------------------
 import { Level, T, O } from './world.js';
-import { makeRng, clamp } from './util.js';
+import { makeRng } from './util.js';
 
 const THEME = {
   forest: { floor: T.FLOOR, wall: T.WALL, mobs: ['slime', 'spore', 'wolf'], boss: 'warden' },

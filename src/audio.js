@@ -123,7 +123,7 @@ export function sfx(name, detune = 0) {
   // 同じ音の連打を軽く間引く
   if (now - (lastPlay.get(name) || -1) < 0.025) return;
   lastPlay.set(name, now);
-  try { fn(now + 0.001, detune); } catch (e) { /* ignore */ }
+  try { fn(now + 0.001, detune); } catch { /* 音が出せなくても進行は止めない */ }
 }
 
 // --- BGM -------------------------------------------------------------------

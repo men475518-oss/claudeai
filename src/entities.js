@@ -4,7 +4,6 @@
 import { TILE, PLAYER } from './config.js';
 import { clamp, dirFromVec, DIR_VEC, makeRng, TAU, lerp, dist } from './util.js';
 import { SPR, whiteOf, PAL } from './art.js';
-import { O, OBJ_DEF } from './world.js';
 import * as FX from './fx.js';
 import { sfx } from './audio.js';
 
