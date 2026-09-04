@@ -430,7 +430,9 @@ export function drawHud(ctx, g) {
   if (ui.hint && !dialog.active && !menu.active) {
     const lines = String(ui.hint).split('\n');
     const size = 13 * S;
-    const hy = view.cssH - ui.padBottom - 150 * S - (lines.length - 1) * size * 1.4;
+    // ボスの体力バーが出ているときは その上へ逃がす
+    const base = bs ? 176 * S : 150 * S;
+    const hy = view.cssH - ui.padBottom - base - (lines.length - 1) * size * 1.4;
     ctx.globalAlpha = clamp(ui.hintT, 0, 1);
     lines.forEach((l, i) => txt(ctx, l, W / 2, hy + i * size * 1.4,
       { size, align: 'center', color: '#ffffff', weight: 600, outlineColor: 'rgba(8,6,12,0.85)' }));

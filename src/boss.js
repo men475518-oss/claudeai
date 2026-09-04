@@ -201,7 +201,8 @@ export class GiantBoss {
     this.lunge = null;
 
     // 吹き出しの吸着点
-    this.anchor = { x: this.cx, y: HORIZON_Y - 52, z: 0, dead: false };
+    // 吹き出しは 顔の下（足場の上）に出す。HUD と かぶらないように。
+    this.anchor = { x: this.cx, y: HORIZON_Y + 34, z: 0, dead: false };
   }
 
   get alive() { return this.hp > 0; }
