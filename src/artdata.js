@@ -678,6 +678,67 @@ export const GRAVE = [
   '..000000000000..',
 ];
 
+
+// 帽子の人（どこにでもいる。たぶん人ではない）
+export const HATMAN = [
+  '................',
+  '.....000000.....',
+  '....01111110....',
+  '....01111110....',
+  '..000000000000..',
+  '....0aaaaaa0....',
+  '....0yyaayy0....',
+  '....0y0aa0y0....',
+  '....0aaaaaa0....',
+  '....0a0000a0....',
+  '...0111111110...',
+  '..0s11111111s0..',
+  '..0s11111111s0..',
+  '...0111111110...',
+  '....01100110....',
+  '.....11..11.....',
+];
+
+// 自販機（村と道ばたに一台ずつ）
+export const VENDING = [
+  '................',
+  '..000000000000..',
+  '..0AAAAAAAAAA0..',
+  '..0AyyyyyyyyA0..',
+  '..0Ay0y0y0yyA0..',
+  '..0AyyyyyyyyA0..',
+  '..0Ay0y0y0yyA0..',
+  '..0AyyyyyyyyA0..',
+  '..0AAAAAAAAAA0..',
+  '..0AyyyyAAAAA0..',
+  '..0AAAAAAAAAA0..',
+  '..0AjjjjjjjjA0..',
+  '..0AAAAAAAAAA0..',
+  '..0AAAAAAAAAA0..',
+  '..0zzzzzzzzzz0..',
+  '..000000000000..',
+];
+
+// ちいさな祠（道しるべ）
+export const SHRINE = [
+  '................',
+  '................',
+  '......0000......',
+  '.....0xxxx0.....',
+  '....0xxxxxx0....',
+  '....0x0xx0x0....',
+  '....0xxxxxx0....',
+  '...0xxxxxxxx0...',
+  '...0xwwwwwwx0...',
+  '...0xwwwwwwx0...',
+  '..0xxxxxxxxxx0..',
+  '..0vvvvvvvvvv0..',
+  '..0vvvvvvvvvv0..',
+  '.0uuuuuuuuuuuu0.',
+  '.0uuuuuuuuuuuu0.',
+  '..000000000000..',
+];
+
 // --- NPC の色替えテーブル（HERO_DOWN の色を差し替えて村人を作る）----------
 // 髪 d/c, 服 j/i, 肌 4/5
 export const VILLAGER_PALETTES = [
@@ -705,7 +766,7 @@ export function validateArt() {
   };
   const c16 = { HERO_DOWN, HERO_UP, HERO_SIDE, SLIME, BAT, SKELETON, SPORE, WOLF, WARDEN };
   for (const [k, frames] of Object.entries(c16)) frames.forEach((f, i) => check(`${k}#${i}`, f, 16, 16));
-  const s16 = { TREE, PINE, BUSH, ROCK, CHEST, CHEST_OPEN, SIGN, CAVE, DOOR, GATE, CRYSTAL, RELIC, GRAVE };
+  const s16 = { TREE, PINE, BUSH, ROCK, CHEST, CHEST_OPEN, SIGN, CAVE, DOOR, GATE, CRYSTAL, RELIC, GRAVE, HATMAN, VENDING, SHRINE };
   for (const [k, rows] of Object.entries(s16)) check(k, rows, 16, 16);
   const s8 = { IT_COIN, IT_HEART, IT_KEY, IT_GEM, IT_BOMB, IT_POTION, IT_STAR };
   for (const [k, rows] of Object.entries(s8)) check(k, rows, 8, 8);

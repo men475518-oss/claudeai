@@ -264,6 +264,109 @@ const DIR_VEC = [
 return { TAU, clamp, lerp, invLerp, sign, approach, dist2, dist, wrapAngle, overlaps, easeOutCubic, easeInCubic, easeOutBack, easeInOutQuad, makeRng, hashSeed, hash2, valueNoise, fbm, ridge, removeItem, pad, formatTime, dirFromVec, DIR_VEC };
 })();
 
+const __M_story = (function () {
+// ---------------------------------------------------------------------------
+// story.js — この世界のことば
+//   だれも大声で説明しない。みんな、なんでもないことのように しゃべる。
+// ---------------------------------------------------------------------------
+
+const INTRO = [
+  '気がついたら、みんな いなくなっていた。\nかばんも、なべも、声も、置いたまま。',
+  'だれかが これを「しずけさ」と 呼んだ。\n帽子の人は「教育」だと 言った。',
+  'あなたは まだ うるさい。\nだから、歩ける。',
+];
+
+const INTRO_HOWTO = [
+  '＜あるきかた＞\n画面を ドラッグ → 歩く\nその場で タップ → 斬る',
+  '＜こつ＞\n長押しして 離す → 回転斬り\nすばやく 払う → ころがって よける',
+];
+
+const SIGNS = [
+  'この先 しずかです。',
+  'くさむらを 斬ると なにか 出ます。\n出ないことも あります。',
+  'ほら穴 三つ。\n帰った人 ゼロ。',
+  '「たすけて」と 書いてある。\n字は、あたらしい。',
+  'すばやく 指を はらうと ころがれます。\nいたく ありません。',
+  '持ち物は 置いていってください。\n　　　　　　　　── 村の きまり',
+  'ここから先、名前を 呼ばれても\n返事を しないこと。',
+];
+
+const SHRINE_INTRO = [
+  'ちいさな 祠。\nだれかが まだ 手入れしている。',
+];
+
+/** 帽子の人。進み具合で言うことが変わる。 */
+function hatmanLines(g) {
+  const p = g.player;
+  const cleared = g.overworld.dungeons.filter(d => d.cleared).length;
+  if (g.won) return ['朝だね。', 'ぼくは 朝も きらいじゃないよ。'];
+  if (p.relics >= 3) return ['門を あけるのかい。', '……いいよ。\nぼくは、ここで 見ている。'];
+  if (cleared >= 2) return ['主が ふたり ねむった。', 'かわりは、いくらでも いる。\nきみの村にも、そのうち。'];
+  if (cleared >= 1) return ['ひとつ しずかに なったね。', 'でも しずけさは 減らない。\n場所を かえるだけだ。'];
+  if (g.rescued >= 3) return ['三人。', 'こまるなあ。\n数が、合わなくなる。'];
+  if (g.rescued >= 1) return ['ひとり つれ戻したね。', 'あの子、まだ うるさいかい？'];
+  return ['やあ。\nまだ うるさいね、きみは。', 'いいことだよ。\nしばらくは。'];
+}
+
+const HATMAN_SHORT = [
+  '「教育」だ。',
+  'まだ うるさいね。',
+  'そのうち 止むよ。',
+  'いい音だ。',
+  'ゆっくりで いいよ。',
+];
+
+/** 檻から出したとき */
+const RESCUE_LINES = [
+  ['……あ。\nまだ 声が 出る。', 'ありがとう。\nさきに 村へ もどってるね。'],
+  ['あそこ、しずかで こわかった。', 'わたし、なにか お店を ひらけると思う。\nたぶん。'],
+  ['名前、まだ 言える。\nよかった。', '村で 待ってるね。'],
+];
+
+/** 村人がぼんやり言うこと */
+const VILLAGER_IDLE = [
+  'わたし、なんで あそこに いたんだっけ。',
+  '夜に なると 名前を 呼ばれるの。\n返事は しないけど。',
+  '帽子の人、見た？\nわるい人じゃ ないと思う。たぶん。',
+  '家が ふえると、しずけさが\nすこし 遠のく気が する。',
+  'たまに 井戸から 手が 出る。\nコインを あげると ひっこむ。',
+  'ころがると、こわいものが\nすり抜けていくよ。',
+  'ほら穴の おくには「主」がいる。\n目が 大きいらしい。',
+  'うるさくして いいんだよ。\nそのほうが、いい。',
+];
+
+const SHOP_TALK = {
+  shop: ['いらっしゃい。\nお金は まだ 使えるみたい。', 'カギは 大事に。\n扉は 待ってくれない。'],
+  smith: ['刃を たたきなおすよ。\n音が 出るのは いいことだ。'],
+  healer: ['からだは 覚えてる。\nこわかったこと、ぜんぶ。'],
+  sage: ['星が めぐる。\n門は 三つの 遺物で ひらく。', '帽子の人は 止めない。\n見ているだけだ。'],
+  farm: ['土は しずかに ならない。\nえらいね。'],
+  well: ['この井戸、そこが ない。\nコインは たまに かえってくる。'],
+  home: ['おかえり。'],
+};
+
+const ENDING_LINES = [
+  '門の むこうは、ただの 朝だった。',
+  'もどってきた人たちは、\nすこしだけ しずかに なっていた。',
+  'それでも、名前は ちゃんと 覚えていた。',
+];
+
+/** 自販機のあたり／はずれ */
+const VENDING_HIT = [
+  'ごとん。\nポーションが 落ちてきた。',
+  'ごとん。\n爆弾が ふたつ。行儀が わるい。',
+  'ごとん。\nコインが 多めに 返ってきた。',
+  'ごとん。\nハートの かけら。あたたかい。',
+];
+const VENDING_MISS = [
+  'ごとん。\n……空き缶だった。',
+  'かたん。\nなにも 出てこない。',
+  'ごとん。\n小石が ひとつ。なぜ。',
+];
+
+return { INTRO, INTRO_HOWTO, SIGNS, SHRINE_INTRO, hatmanLines, HATMAN_SHORT, RESCUE_LINES, VILLAGER_IDLE, SHOP_TALK, ENDING_LINES, VENDING_HIT, VENDING_MISS };
+})();
+
 const __M_artdata = (function () {
 // ---------------------------------------------------------------------------
 // artdata.js — ドット絵データ（純データ。canvas に依存しないので Node で検証可能）
@@ -945,6 +1048,67 @@ const GRAVE = [
   '..000000000000..',
 ];
 
+
+// 帽子の人（どこにでもいる。たぶん人ではない）
+const HATMAN = [
+  '................',
+  '.....000000.....',
+  '....01111110....',
+  '....01111110....',
+  '..000000000000..',
+  '....0aaaaaa0....',
+  '....0yyaayy0....',
+  '....0y0aa0y0....',
+  '....0aaaaaa0....',
+  '....0a0000a0....',
+  '...0111111110...',
+  '..0s11111111s0..',
+  '..0s11111111s0..',
+  '...0111111110...',
+  '....01100110....',
+  '.....11..11.....',
+];
+
+// 自販機（村と道ばたに一台ずつ）
+const VENDING = [
+  '................',
+  '..000000000000..',
+  '..0AAAAAAAAAA0..',
+  '..0AyyyyyyyyA0..',
+  '..0Ay0y0y0yyA0..',
+  '..0AyyyyyyyyA0..',
+  '..0Ay0y0y0yyA0..',
+  '..0AyyyyyyyyA0..',
+  '..0AAAAAAAAAA0..',
+  '..0AyyyyAAAAA0..',
+  '..0AAAAAAAAAA0..',
+  '..0AjjjjjjjjA0..',
+  '..0AAAAAAAAAA0..',
+  '..0AAAAAAAAAA0..',
+  '..0zzzzzzzzzz0..',
+  '..000000000000..',
+];
+
+// ちいさな祠（道しるべ）
+const SHRINE = [
+  '................',
+  '................',
+  '......0000......',
+  '.....0xxxx0.....',
+  '....0xxxxxx0....',
+  '....0x0xx0x0....',
+  '....0xxxxxx0....',
+  '...0xxxxxxxx0...',
+  '...0xwwwwwwx0...',
+  '...0xwwwwwwx0...',
+  '..0xxxxxxxxxx0..',
+  '..0vvvvvvvvvv0..',
+  '..0vvvvvvvvvv0..',
+  '.0uuuuuuuuuuuu0.',
+  '.0uuuuuuuuuuuu0.',
+  '..000000000000..',
+];
+
 // --- NPC の色替えテーブル（HERO_DOWN の色を差し替えて村人を作る）----------
 // 髪 d/c, 服 j/i, 肌 4/5
 const VILLAGER_PALETTES = [
@@ -972,14 +1136,14 @@ function validateArt() {
   };
   const c16 = { HERO_DOWN, HERO_UP, HERO_SIDE, SLIME, BAT, SKELETON, SPORE, WOLF, WARDEN };
   for (const [k, frames] of Object.entries(c16)) frames.forEach((f, i) => check(`${k}#${i}`, f, 16, 16));
-  const s16 = { TREE, PINE, BUSH, ROCK, CHEST, CHEST_OPEN, SIGN, CAVE, DOOR, GATE, CRYSTAL, RELIC, GRAVE };
+  const s16 = { TREE, PINE, BUSH, ROCK, CHEST, CHEST_OPEN, SIGN, CAVE, DOOR, GATE, CRYSTAL, RELIC, GRAVE, HATMAN, VENDING, SHRINE };
   for (const [k, rows] of Object.entries(s16)) check(k, rows, 16, 16);
   const s8 = { IT_COIN, IT_HEART, IT_KEY, IT_GEM, IT_BOMB, IT_POTION, IT_STAR };
   for (const [k, rows] of Object.entries(s8)) check(k, rows, 8, 8);
   return errs;
 }
 
-return { PALETTE, HERO_DOWN, HERO_UP, HERO_SIDE, SLIME, BAT, SKELETON, SPORE, WOLF, WARDEN, IT_COIN, IT_HEART, IT_KEY, IT_GEM, IT_BOMB, IT_POTION, IT_STAR, TREE, PINE, BUSH, ROCK, CHEST, CHEST_OPEN, SIGN, CAVE, DOOR, GATE, CRYSTAL, RELIC, GRAVE, VILLAGER_PALETTES, validateArt };
+return { PALETTE, HERO_DOWN, HERO_UP, HERO_SIDE, SLIME, BAT, SKELETON, SPORE, WOLF, WARDEN, IT_COIN, IT_HEART, IT_KEY, IT_GEM, IT_BOMB, IT_POTION, IT_STAR, TREE, PINE, BUSH, ROCK, CHEST, CHEST_OPEN, SIGN, CAVE, DOOR, GATE, CRYSTAL, RELIC, GRAVE, HATMAN, VENDING, SHRINE, VILLAGER_PALETTES, validateArt };
 })();
 
 const __M_art = (function () {
@@ -1181,6 +1345,9 @@ const TERRAIN_COLOR = {
   ash:    '#3a3340',
   stone:  P.v,
   floor:  '#4a4352',
+  swamp:  '#24463a',
+  moss:   '#3a7d48',
+  void:   '#3b3648',
   water:  P.i,
   deep:   P.h,
   cliff:  P.v,
@@ -1240,6 +1407,9 @@ function buildArt() {
   SPR.crystal = buildSprite(D.CRYSTAL);
   SPR.relic = buildSprite(D.RELIC);
   SPR.grave = buildSprite(D.GRAVE);
+  SPR.hatman = buildSprite(D.HATMAN);
+  SPR.vending = buildSprite(D.VENDING);
+  SPR.shrine = buildSprite(D.SHRINE);
   // 枯れ木（灰バイオーム用）：木を灰色に色替え
   SPR.deadTree = buildSprite(D.TREE, { a: 'v', b: 'w', '9': 'u', d: 'u', c: 'u' });
   SPR.snowPine = buildSprite(D.PINE, { a: 'x', b: 'y', '9': 'w' });
@@ -1257,6 +1427,10 @@ function buildArt() {
   T.ash    = [0, 1, 2, 3].map(v => groundTile(['#312b39', '#3a3340', '#443c4b'], [0.34, 0.50, 0.16], 606, 0.82, v));
   T.stone  = [0, 1, 2, 3].map(v => groundTile(['#4e4e58', '#5c5c68', '#6c6c78'], [0.32, 0.50, 0.18], 707, 0.78, v));
   T.floor  = [0, 1, 2, 3].map(v => groundTile(['#413a4a', '#4a4352', '#554d5e'], [0.34, 0.50, 0.16], 808, 0.76, v));
+  // ボス戦の沼地／草の島
+  T.swamp  = [0, 1, 2, 3].map(v => groundTile(['#20402f', '#264a37', '#2c5540'], [0.36, 0.48, 0.16], 909, 0.52, v));
+  T.moss   = [0, 1, 2, 3].map(v => groundTile(['#2f6b3e', '#3a7d48', '#468d54'], [0.32, 0.50, 0.18], 1010, 0.84, v));
+  T.void   = [0, 1, 2, 3].map(() => groundTile(['#3b3648', '#3b3648', '#3b3648'], [1, 0, 0], 1111, 1, 0));
   T.water  = [0, 1, 2, 3].map(f => waterTile(f, false));
   T.deep   = [0, 1, 2, 3].map(f => waterTile(f, true));
   T.cliff  = [0, 1, 2, 3].map(v => cliffTile(v));
@@ -1671,6 +1845,7 @@ return { fx, clearFx, shake, hitstop, flash, particle, burst, dust, ring, floatT
 const __M_world = (function () {
 const { TILE, WORLD_W, WORLD_H } = __M_config;
 const { makeRng, fbm, ridge, hash2, clamp } = __M_util;
+const { SIGNS } = __M_story;
 // ---------------------------------------------------------------------------
 // world.js — タイル地図・地形定義・オーバーワールド生成
 // ---------------------------------------------------------------------------
@@ -1679,19 +1854,20 @@ const { makeRng, fbm, ridge, hash2, clamp } = __M_util;
 const T = {
   GRASS: 0, FOREST: 1, SAND: 2, DIRT: 3, MARSH: 4, ASH: 5,
   STONE: 6, WATER: 7, DEEP: 8, FLOOR: 9, CLIFF: 10, WALL: 11, RUIN: 12,
+  SWAMP: 13, VOID: 14, MOSS: 15,
 };
-const TERRAIN_NAME = ['grass', 'forest', 'sand', 'dirt', 'marsh', 'ash', 'stone', 'water', 'deep', 'floor', 'cliff', 'wall', 'wallRuin'];
-const TERRAIN_SOLID = [0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1];
-const TERRAIN_SLOW = [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0];
+const TERRAIN_NAME = ['grass', 'forest', 'sand', 'dirt', 'marsh', 'ash', 'stone', 'water', 'deep', 'floor', 'cliff', 'wall', 'wallRuin', 'swamp', 'void', 'moss'];
+const TERRAIN_SOLID = [0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 0, 1, 0];
+const TERRAIN_SLOW = [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 // 描画時の重なり優先度（高いほうが低いほうの上へディザで乗る）
-const TERRAIN_PRIO = [3, 2, 5, 1, 2, 4, 5, 7, 6, 5, 9, 9, 9];
+const TERRAIN_PRIO = [3, 2, 5, 1, 2, 4, 5, 7, 6, 5, 9, 9, 9, 4, 0, 3];
 
 // --- オブジェクト ----------------------------------------------------------
 const O = {
   NONE: 0, TREE: 1, PINE: 2, BUSH: 3, ROCK: 4, SIGN: 5, CAVE: 6, CHEST: 7,
   CHEST_OPEN: 8, DOOR: 9, GATE: 10, CRYSTAL: 11, GRAVE: 12, DEADTREE: 13,
   FLOWER: 14, TUFT: 15, STAIRS: 16, PILLAR: 17, CAGE: 18, CRACK: 19,
-  EXIT: 20, RELIC: 21, SNOWPINE: 22, TORCH: 23, POT: 24,
+  EXIT: 20, RELIC: 21, SNOWPINE: 22, TORCH: 23, POT: 24, PORTAL: 25, BOUND: 26, VENDING: 27, SHRINE: 28,
 };
 
 /** [sprite, solid, hp(0=壊せない), tall(縦に重なる大きさ)] */
@@ -1720,6 +1896,10 @@ const OBJ_DEF = {
   [O.CRACK]:     { spr: null, solid: 1, hp: 0, tall: 0 },
   [O.TORCH]:     { spr: null, solid: 1, hp: 0, tall: 1 },
   [O.POT]:       { spr: null, solid: 0, hp: 1, tall: 0 },
+  [O.PORTAL]:    { spr: 'gate', solid: 1, hp: 0, tall: 0 },
+  [O.BOUND]:     { spr: null, solid: 1, hp: 0, tall: 0 },   // 見えない仕切り
+  [O.VENDING]:   { spr: 'vending', solid: 1, hp: 0, tall: 1 },
+  [O.SHRINE]:    { spr: 'shrine', solid: 1, hp: 0, tall: 0 },
 };
 
 function objSolid(id) { const d = OBJ_DEF[id]; return d ? d.solid : 0; }
@@ -2060,21 +2240,49 @@ function generateOverworld(seed) {
 
   // --- 立て札 ---
   const signs = [];
-  const signTexts = [
-    'ここは アフターグローヴ。\nむかしは にぎやかな村だった。',
-    'まもの に つかまった 仲間を\nさがしている…',
-    'ほら穴 には たからと きけんが\nねむっている。',
-    'くさ を きると なにか 出るかも。',
-    'つよい敵には ためうち（Ａ長押し）を。',
-  ];
-  for (let i = 0; i < signTexts.length; i++) {
-    for (let k = 0; k < 800; k++) {
-      const ang = rng() * Math.PI * 2, r = 11 + i * 5 + rng() * 8;
+  for (let i = 0; i < SIGNS.length; i++) {
+    for (let k = 0; k < 1200; k++) {
+      const ang = rng() * Math.PI * 2, r = 10 + i * 6 + rng() * 10;
       const x = Math.round(townX + Math.cos(ang) * r), y = Math.round(townY + Math.sin(ang) * r);
       if (!reachable(x, y) || level.solid(x, y)) continue;
       level.setO(x, y, O.SIGN);
-      signs.push({ x, y, text: signTexts[i] });
+      signs.push({ x, y, text: SIGNS[i] });
       break;
+    }
+  }
+
+  // --- 祠（近くの用事を教えてくれる）---
+  const shrines = [];
+  for (let i = 0; i < 4; i++) {
+    for (let k = 0; k < 3000; k++) {
+      const x = rng.irange(6, WORLD_W - 7), y = rng.irange(6, WORLD_H - 7);
+      if (!reachable(x, y) || level.solid(x, y)) continue;
+      const d = Math.hypot(x - townX, y - townY);
+      if (d < 16 || d > 80) continue;
+      if (shrines.some(sh => Math.hypot(sh.x - x, sh.y - y) < 26)) continue;
+      level.setO(x, y, O.SHRINE);
+      shrines.push({ x, y });
+      break;
+    }
+  }
+
+  // --- 自販機（村に一台、外に二台）---
+  const vendings = [];
+  const putVending = (x, y) => {
+    if (!level.inb(x, y) || level.solid(x, y)) return false;
+    level.setO(x, y, O.VENDING);
+    vendings.push({ x, y });
+    return true;
+  };
+  putVending(townX + 3, townY + 2);
+  for (let i = 0; i < 2; i++) {
+    for (let k = 0; k < 2500; k++) {
+      const x = rng.irange(6, WORLD_W - 7), y = rng.irange(6, WORLD_H - 7);
+      if (!reachable(x, y)) continue;
+      const d = Math.hypot(x - townX, y - townY);
+      if (d < 20 || d > 70) continue;
+      if (vendings.some(v => Math.hypot(v.x - x, v.y - y) < 30)) continue;
+      if (putVending(x, y)) break;
     }
   }
 
@@ -2097,7 +2305,7 @@ function generateOverworld(seed) {
     carvePath(level, townX, townY, gate.x, gate.y + 2, rng, 0);
   }
 
-  return { level, townX, townY, dungeons, villagers, chests, signs, gate, reach };
+  return { level, townX, townY, dungeons, villagers, chests, signs, shrines, vendings, gate, reach };
 }
 
 /** 村の広場に建物区画を作る */
@@ -2151,6 +2359,184 @@ function applyBuildings(level, list) {
 }
 
 return { T, TERRAIN_NAME, TERRAIN_SOLID, TERRAIN_SLOW, TERRAIN_PRIO, O, OBJ_DEF, objSolid, Level, BUILDINGS, generateOverworld, layoutTown, applyBuildings };
+})();
+
+const __M_arena = (function () {
+const { TILE } = __M_config;
+const { Level, T, O } = __M_world;
+const { makeRng, hash2 } = __M_util;
+// ---------------------------------------------------------------------------
+// arena.js — ボス戦の舞台
+//   紫がかった空、地平線に立ちならぶ黒い影、降りそそぐ短剣。
+//   足場は暗い沼地で、上 1/4 は「向こう側」になっていて入れない。
+// ---------------------------------------------------------------------------
+
+const ARENA_W = 18;
+const ARENA_H = 27;
+const HORIZON_ROW = 5;
+const FIELD_BOTTOM = 21;   // ここより下へは行けない（画面外に出ないように）                 // ここから下が足場
+const HORIZON_Y = HORIZON_ROW * TILE;
+
+/** ボス部屋を作る。def: {id, name, seed, theme} */
+function generateArena(def) {
+  const lv = new Level(ARENA_W, ARENA_H, 'arena');
+  lv.id = def.id;
+  lv.name = def.name;
+  lv.music = 'boss';
+  lv.dark = false;
+  lv.ground.fill(T.VOID);
+
+  const rng = makeRng(def.seed ^ 0x5EED);
+  // 見た目の地面は下までびっしり。動ける範囲だけ見えない壁で囲う。
+  for (let y = HORIZON_ROW; y < ARENA_H; y++)
+    for (let x = 0; x < ARENA_W; x++) {
+      lv.setG(x, y, T.SWAMP);
+      const inField = x >= 1 && x <= ARENA_W - 2 && y >= HORIZON_ROW && y <= FIELD_BOTTOM;
+      if (!inField) lv.setO(x, y, O.BOUND);
+    }
+  // 沼のよどみ（見た目だけ）
+  for (let n = 0; n < 14; n++) {
+    const x = rng.irange(2, ARENA_W - 3), y = rng.irange(HORIZON_ROW + 1, FIELD_BOTTOM - 1);
+    if (lv.g(x, y) === T.SWAMP && rng() < 0.5) lv.setO(x, y, O.TUFT);
+  }
+
+  const spawn = { x: (ARENA_W >> 1), y: FIELD_BOTTOM - 3 };
+  const relicPos = { x: (ARENA_W >> 1), y: HORIZON_ROW + 5 };
+  return { level: lv, spawn, relicPos, horizonY: HORIZON_Y };
+}
+
+// --- 背景 -------------------------------------------------------------------
+
+/** 地平線に立つ影たち。位置はシードから決めるので毎回おなじ。 */
+function drawSilhouettes(ctx, seed, camx, camy, viewW, hy, t) {
+  const par = 0.35;                            // 視差（遠いのでゆっくり動く）
+  const ox = -camx * par;
+  const oy = hy - camy;
+
+  ctx.fillStyle = '#0b0d10';
+
+  // 大きな主（左）— 前かがみの長い体と細い脚
+  const bigX = 18 + ox;
+  if (bigX > -120 && bigX < viewW + 120) {
+    ctx.beginPath();
+    ctx.moveTo(bigX - 20, oy);
+    ctx.lineTo(bigX - 16, oy - 54);
+    ctx.lineTo(bigX - 22, oy - 78);
+    ctx.lineTo(bigX - 10, oy - 96);
+    ctx.lineTo(bigX + 14, oy - 92);
+    ctx.lineTo(bigX + 20, oy - 66);
+    ctx.lineTo(bigX + 10, oy - 40);
+    ctx.lineTo(bigX + 16, oy);
+    ctx.closePath();
+    ctx.fill();
+    // ぼろぼろの裾
+    for (let i = 0; i < 7; i++) {
+      const fx = bigX - 20 + i * 5;
+      ctx.fillRect(fx, oy - 4, 3, 4 + ((hash2(i, 3, seed) * 7) | 0));
+    }
+    // 赤い目
+    ctx.fillStyle = '#c8332c';
+    ctx.fillRect(bigX - 12, oy - 88, 3, 2);
+    ctx.fillRect(bigX - 5, oy - 87, 2, 2);
+    ctx.fillStyle = '#0b0d10';
+  }
+
+  // 首の長い機械じみた影
+  const nx = 62 + ox;
+  ctx.beginPath();
+  ctx.moveTo(nx, oy);
+  ctx.lineTo(nx + 2, oy - 30);
+  ctx.quadraticCurveTo(nx + 4, oy - 52, nx + 20, oy - 54);
+  ctx.lineTo(nx + 22, oy - 48);
+  ctx.quadraticCurveTo(nx + 10, oy - 46, nx + 8, oy - 28);
+  ctx.lineTo(nx + 7, oy);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillRect(nx + 17, oy - 58, 12, 8);
+  ctx.fillStyle = '#c8332c';
+  ctx.fillRect(nx + 26, oy - 55, 3, 2);
+  ctx.fillStyle = '#0b0d10';
+
+  // 細い人影がずらりと（手を上げているものも）
+  for (let i = 0; i < 22; i++) {
+    const sx = ((i * 37 + ((hash2(i, 1, seed) * 22) | 0)) % 300) + ox;
+    if (sx < -14 || sx > viewW + 14) continue;
+    const h = 14 + ((hash2(i, 2, seed) * 22) | 0);
+    const sway = Math.sin(t * 0.6 + i) * 0.8;
+    ctx.fillRect(sx + sway, oy - h, 3, h);
+    ctx.fillRect(sx - 1 + sway, oy - h - 4, 5, 5);            // 頭
+    if (hash2(i, 4, seed) < 0.35) {                            // 上げた腕
+      ctx.fillRect(sx - 3 + sway, oy - h - 10, 2, 8);
+      ctx.fillRect(sx + 4 + sway, oy - h - 12, 2, 10);
+    }
+  }
+
+  // 右手前の 傾いた尖塔
+  const tx = 300 + ox;
+  ctx.beginPath();
+  ctx.moveTo(tx, oy + 4);
+  ctx.lineTo(tx + 34, oy - 96);
+  ctx.lineTo(tx + 46, oy - 92);
+  ctx.lineTo(tx + 20, oy + 4);
+  ctx.closePath();
+  ctx.fill();
+}
+
+/** 空から降りつづける短剣（背景の飾り） */
+function drawFallingDaggers(ctx, seed, camx, camy, viewW, hy, t) {
+  const par = 0.6;
+  const ox = -camx * par, oy = -camy * par;
+  const bandH = hy + 40;
+  ctx.fillStyle = '#15151c';
+  for (let i = 0; i < 34; i++) {
+    const baseX = (hash2(i, 7, seed) * 340) | 0;
+    const speed = 10 + hash2(i, 8, seed) * 16;
+    const phase = hash2(i, 9, seed) * 400;
+    const x = ((baseX + ox) % 340 + 340) % 340 - 20;
+    const y = ((t * speed + phase) % (bandH + 120)) - 60 + oy * 0.2;
+    if (x < -12 || x > viewW + 12 || y > bandH) continue;
+    const s = 0.7 + hash2(i, 10, seed) * 0.8;
+    dagger(ctx, x, y, s);
+  }
+}
+
+function dagger(ctx, x, y, s) {
+  const bl = Math.round(14 * s), bw = Math.max(1, Math.round(2 * s));
+  ctx.fillRect(x, y, bw, bl);                       // 刃
+  ctx.fillRect(x - Math.round(2 * s), y - Math.round(3 * s), bw + Math.round(4 * s), Math.max(1, Math.round(1.6 * s))); // つば
+  ctx.fillRect(x, y - Math.round(7 * s), bw, Math.round(4 * s));   // 柄
+  ctx.fillRect(x - 1, y + bl, bw + 2, 1);           // 切っ先
+}
+
+/** ボス戦の舞台まるごと。地面を描く前に呼ぶ。 */
+function drawArenaBackdrop(ctx, g, camx, camy, viewW, viewH, t) {
+  const hy = HORIZON_Y - camy;
+
+  // 空
+  const grd = ctx.createLinearGradient(0, 0, 0, Math.max(1, hy));
+  grd.addColorStop(0, '#4a4358');
+  grd.addColorStop(1, '#565068');
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, viewW, Math.max(0, hy));
+
+  // 地平線の向こうの暗がり
+  ctx.fillStyle = '#16211f';
+  ctx.fillRect(0, Math.max(0, hy - 1), viewW, viewH - hy + 1);
+
+  const seed = g.arenaSeed || 1234;
+  drawFallingDaggers(ctx, seed, camx, camy, viewW, hy, t);
+  drawSilhouettes(ctx, seed, camx, camy, viewW, HORIZON_Y - camy, t);
+
+  // 地平線のもや
+  const fog = ctx.createLinearGradient(0, hy - 14, 0, hy + 10);
+  fog.addColorStop(0, 'rgba(70,66,86,0)');
+  fog.addColorStop(0.6, 'rgba(46,52,58,0.55)');
+  fog.addColorStop(1, 'rgba(22,33,31,0.9)');
+  ctx.fillStyle = fog;
+  ctx.fillRect(0, hy - 14, viewW, 24);
+}
+
+return { ARENA_W, ARENA_H, HORIZON_ROW, FIELD_BOTTOM, HORIZON_Y, generateArena, drawArenaBackdrop };
 })();
 
 const __M_dungeon = (function () {
@@ -2345,9 +2731,14 @@ function generateDungeon(def, playerLevel = 1) {
     }
   }
 
-  // ボス
-  const boss = { x: bossRoom.cx, y: bossRoom.y + 2, kind: theme.boss, level: def.level, boss: true };
-  const relicPos = { x: bossRoom.cx, y: bossRoom.cy + Math.max(1, (bossRoom.h >> 1) - 2) };
+  // ボス部屋のおくに「向こう側」への門
+  const portalPos = { x: bossRoom.cx, y: bossRoom.y + 2 };
+  lv.setO(portalPos.x, portalPos.y, O.PORTAL);
+  lv.setO(portalPos.x - 2, portalPos.y, O.TORCH);
+  lv.setO(portalPos.x + 2, portalPos.y, O.TORCH);
+  for (let x = bossRoom.x + 1; x < bossRoom.x + bossRoom.w - 1; x++)
+    for (let y = bossRoom.y + 1; y < bossRoom.y + bossRoom.h - 1; y++)
+      if (lv.o(x, y) === O.POT) lv.setO(x, y, O.NONE);
 
   // 壁際の飾り
   for (let y = 0; y < H; y++)
@@ -2355,720 +2746,150 @@ function generateDungeon(def, playerLevel = 1) {
       if (lv.g(x, y) === theme.floor && rng() < 0.012 && lv.o(x, y) === O.NONE)
         lv.setO(x, y, O.POT);
 
-  return { level: lv, spawn, exitTile, rooms, bossRoom, boss, relicPos, enemies, chests, doorPos, secrets, theme: def.theme };
+  return { level: lv, spawn, exitTile, rooms, bossRoom, portalPos, enemies, chests, doorPos, secrets, theme: def.theme };
 }
 
 return { generateDungeon };
 })();
 
-const __M_render = (function () {
-const { TILE, VIEW_W, VIEW_H_MIN, VIEW_H_MAX } = __M_config;
-const { clamp, hash2, lerp, TAU } = __M_util;
-const { SPR, TERRAIN_TILES, EDGE, PAL, makeCanvas } = __M_art;
-const { T, O, TERRAIN_NAME, TERRAIN_PRIO, OBJ_DEF } = __M_world;
-const FX = __M_fx;
+const __M_bubble = (function () {
+const { clamp, easeOutBack } = __M_util;
+const { FONT } = __M_config;
 // ---------------------------------------------------------------------------
-// render.js — カメラ・タイル描画・奥行きソート・ダンジョンの明かり
-// ---------------------------------------------------------------------------
-
-const view = {
-  w: VIEW_W, h: 300,          // 論理解像度
-  scale: 2,                   // 表示倍率
-  ox: 0, oy: 0,               // ゲーム領域の左上（ウィンドウ内の CSS px）
-  cssW: 0, cssH: 0,           // ゲーム領域の大きさ（CSS px）＝ UI の座標系
-  winW: 0, winH: 0,           // ウィンドウ全体
-  dpr: 1,
-};
-
-const cam = { x: 0, y: 0, tx: 0, ty: 0 };
-
-let screen = null, sctx = null;      // 表示用（デバイス解像度）
-let world = null, wctx = null;       // ゲーム画面（論理解像度）
-let light = null, lctx = null;       // 明かり用
-
-function initRender(canvas) {
-  screen = canvas;
-  sctx = canvas.getContext('2d', { alpha: false });
-  sctx.imageSmoothingEnabled = false;
-  return { screen, sctx };
-}
-
-function getCtx() { return { sctx, wctx, screen, world }; }
-
-function resize() {
-  const dpr = Math.min(window.devicePixelRatio || 1, 3);
-  const winW = window.innerWidth, winH = window.innerHeight;
-  view.winW = winW; view.winH = winH; view.dpr = dpr;
-
-  screen.style.width = winW + 'px';
-  screen.style.height = winH + 'px';
-  screen.width = Math.round(winW * dpr);
-  screen.height = Math.round(winH * dpr);
-  sctx.imageSmoothingEnabled = false;
-
-  // 論理解像度：横幅は固定。縦は端末比率に合わせるが、
-  // 横長画面では縦がはみ出さないよう倍率のほうを下げる（左右に黒帯）。
-  const scale = Math.min(winW / VIEW_W, winH / VIEW_H_MIN);
-  view.w = VIEW_W;
-  view.h = Math.round(clamp(winH / scale, VIEW_H_MIN, VIEW_H_MAX));
-  view.scale = scale;
-  view.cssW = view.w * scale;
-  view.cssH = view.h * scale;
-  view.ox = Math.round((winW - view.cssW) / 2);
-  view.oy = Math.round((winH - view.cssH) / 2);
-
-  if (!world || world.width !== view.w || world.height !== view.h) {
-    world = makeCanvas(view.w, view.h);
-    wctx = world.getContext('2d');
-    wctx.imageSmoothingEnabled = false;
-    light = makeCanvas(view.w, view.h);
-    lctx = light.getContext('2d');
-  }
-}
-
-/** 論理座標 → ゲーム領域内の CSS px */
-function toScreen(x, y) {
-  return { x: x * view.scale, y: y * view.scale };
-}
-/** ゲーム領域内の CSS px → 論理座標 */
-function toWorldPx(x, y) {
-  return { x: x / view.scale, y: y / view.scale };
-}
-
-/** UI 描画用の座標系（ゲーム領域の左上が原点）に切り替える */
-function beginUi() {
-  sctx.setTransform(view.dpr, 0, 0, view.dpr, view.ox * view.dpr, view.oy * view.dpr);
-  return sctx;
-}
-function endUi() { sctx.setTransform(1, 0, 0, 1, 0, 0); }
-
-function snapCamera(target, level) {
-  cam.tx = target.x; cam.ty = target.y;
-  cam.x = target.x; cam.y = target.y;
-  clampCam(level);
-}
-
-function clampCam(level) {
-  const halfW = view.w / 2, halfH = view.h / 2;
-  const lw = level.w * TILE, lh = level.h * TILE;
-  cam.x = lw <= view.w ? lw / 2 : clamp(cam.x, halfW, lw - halfW);
-  cam.y = lh <= view.h ? lh / 2 : clamp(cam.y, halfH, lh - halfH);
-}
-
-function updateCamera(dt, target, level, lookAhead = 0) {
-  cam.tx = target.x;
-  cam.ty = target.y - 6;
-  const k = 1 - Math.pow(0.0006, dt);
-  cam.x = lerp(cam.x, cam.tx, k);
-  cam.y = lerp(cam.y, cam.ty, k);
-  clampCam(level);
-}
-
+// bubble.js — キャラの頭上に出る吹き出し
+//   ワールド座標を画面座標に直して、UI レイヤー（等倍）へ描く。
+//   文字はドットに潰さず、くっきり表示させたいので実解像度で描画する。
 // ---------------------------------------------------------------------------
 
-function groundVariant(x, y) { return (hash2(x, y, 4711) * 4) | 0; }
+const bubbles = [];
 
-/** 同じ木がならばないよう、位置ハッシュで見た目を散らす */
-const VARIANTS = {
-  [O.TREE]: ['tree', 'tree2', 'tree3'],
-  [O.PINE]: ['pine', 'pine2'],
-  [O.BUSH]: ['bush', 'bush2'],
-};
-function objSprite(id, x, y) {
-  const list = VARIANTS[id];
-  if (!list) return SPR[OBJ_DEF[id].spr];
-  return SPR[list[(hash2(x, y, 1237) * list.length) | 0]];
-}
-
-let waterFrame = 0;
-function setTime(t) { waterFrame = Math.floor(t * 3.2) % 4; }
-
-/** 装飾（花・草むら）を直接描く */
-function drawDecor(ctx, id, px, py, x, y) {
-  if (id === O.FLOWER) {
-    const h = hash2(x, y, 909);
-    const col = h < 0.33 ? PAL.t : h < 0.66 ? PAL.p : PAL.C;
-    ctx.fillStyle = PAL['8'];
-    ctx.fillRect(px + 7, py + 9, 1, 4);
-    ctx.fillStyle = col;
-    ctx.fillRect(px + 6, py + 7, 3, 2);
-    ctx.fillRect(px + 7, py + 6, 1, 4);
-    if (h < 0.5) {
-      ctx.fillStyle = PAL['8']; ctx.fillRect(px + 11, py + 12, 1, 3);
-      ctx.fillStyle = col; ctx.fillRect(px + 10, py + 10, 3, 2);
-    }
-  } else if (id === O.TUFT) {
-    const h = hash2(x, y, 313);
-    ctx.fillStyle = h < 0.5 ? PAL['8'] : PAL.a;
-    for (let i = 0; i < 4; i++) {
-      const bx = px + 2 + i * 4 + ((hash2(x + i, y, 5) * 2) | 0);
-      const bh = 2 + ((hash2(x, y + i, 9) * 3) | 0);
-      ctx.fillRect(bx, py + 14 - bh, 1, bh);
-      ctx.fillRect(bx + 1, py + 15 - bh, 1, bh - 1);
-    }
-  } else if (id === O.EXIT || id === O.STAIRS) {
-    ctx.fillStyle = PAL['0']; ctx.fillRect(px + 2, py + 3, 12, 11);
-    for (let i = 0; i < 4; i++) {
-      ctx.fillStyle = i % 2 ? PAL.v : PAL.w;
-      ctx.fillRect(px + 3 + i, py + 4 + i * 2.5, 10 - i * 2, 2);
-    }
-  } else if (id === O.PILLAR) {
-    // 建物の当たり判定専用。見た目は drawBuilding が描く。
-  } else if (id === O.CAGE) {
-    ctx.fillStyle = PAL['0']; ctx.fillRect(px + 1, py + 2, 14, 13);
-    ctx.fillStyle = PAL.c; ctx.fillRect(px + 2, py + 3, 12, 11);
-    ctx.fillStyle = PAL.u;
-    for (let i = 0; i < 4; i++) ctx.fillRect(px + 3 + i * 3, py + 3, 1, 11);
-    ctx.fillRect(px + 2, py + 3, 12, 1);
-    ctx.fillRect(px + 2, py + 13, 12, 1);
-    ctx.fillStyle = PAL.s; ctx.fillRect(px + 7, py + 8, 2, 2);
-  } else if (id === O.TORCH) {
-    ctx.fillStyle = PAL.c; ctx.fillRect(px + 6, py + 7, 3, 9);
-    const f = (performance.now() / 90) | 0;
-    const w = 3 + (f % 2);
-    ctx.fillStyle = PAL.o; ctx.fillRect(px + 8 - (w >> 1), py + 2, w, 5);
-    ctx.fillStyle = PAL.s; ctx.fillRect(px + 7, py + 3, 2, 3);
-    ctx.fillStyle = PAL.t; ctx.fillRect(px + 7, py + 4, 1, 1);
-  } else if (id === O.POT) {
-    ctx.fillStyle = PAL['0']; ctx.fillRect(px + 4, py + 5, 8, 10);
-    ctx.fillStyle = PAL.e; ctx.fillRect(px + 5, py + 6, 6, 8);
-    ctx.fillStyle = PAL.f; ctx.fillRect(px + 5, py + 6, 2, 6);
-    ctx.fillStyle = PAL.d; ctx.fillRect(px + 4, py + 5, 8, 2);
-  } else if (id === O.RELIC) {
-    const t = performance.now() / 1000;
-    const bob = Math.round(Math.sin(t * 2) * 1.5) - 2;
-    // 光の輪
-    ctx.save();
-    ctx.globalAlpha = 0.16 + Math.sin(t * 3) * 0.06;
-    ctx.fillStyle = PAL.t;
-    ctx.beginPath(); ctx.arc(px + 8, py + 8 + bob, 13, 0, TAU); ctx.fill();
-    ctx.globalAlpha = 0.30;
-    ctx.beginPath(); ctx.arc(px + 8, py + 8 + bob, 8, 0, TAU); ctx.fill();
-    ctx.restore();
-    ctx.drawImage(SPR.relic, px, py + bob);
-    // きらめき
-    ctx.fillStyle = PAL.E;
-    for (let i = 0; i < 3; i++) {
-      const a = t * 1.4 + i * TAU / 3;
-      ctx.globalAlpha = 0.5 + 0.5 * Math.sin(t * 4 + i);
-      ctx.fillRect(Math.round(px + 8 + Math.cos(a) * 11), Math.round(py + 8 + bob + Math.sin(a) * 9), 1, 1);
-    }
-    ctx.globalAlpha = 1;
-  } else if (id === O.CRACK) {
-    ctx.fillStyle = PAL.u; ctx.fillRect(px, py, TILE, TILE);
-    ctx.fillStyle = PAL['1'];
-    ctx.fillRect(px + 7, py + 1, 1, 6); ctx.fillRect(px + 6, py + 7, 1, 4);
-    ctx.fillRect(px + 8, py + 8, 1, 6); ctx.fillRect(px + 4, py + 10, 2, 1);
-  }
-}
-
-/** 建物を描く（外観のみ） */
-function drawBuilding(ctx, b, camx, camy) {
-  const px = Math.round(b.x * TILE - camx), py = Math.round(b.y * TILE - camy);
-  const w = b.w * TILE, h = b.h * TILE;
-  if (px > view.w || py > view.h || px + w < 0 || py + h < 0) return;
-  if (!b.built) {
-    // 更地：四隅の杭とロープ、そして小さな立て看板
-    const x0 = px + 2, y0 = py + 6, x1 = px + w - 3, y1 = py + h - 3;
-    ctx.globalAlpha = 0.20;
-    ctx.fillStyle = PAL.d;
-    ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
-    ctx.globalAlpha = 1;
-    ctx.strokeStyle = PAL.g; ctx.lineWidth = 1;
-    ctx.globalAlpha = 0.6;
-    ctx.setLineDash([2, 3]);
-    ctx.beginPath();
-    ctx.rect(x0 + 0.5, y0 + 0.5, x1 - x0 - 1, y1 - y0 - 1);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.globalAlpha = 1;
-    for (const [sx, sy] of [[x0, y0], [x1 - 1, y0], [x0, y1 - 2], [x1 - 1, y1 - 2]]) {
-      ctx.fillStyle = PAL['0']; ctx.fillRect(sx - 1, sy - 4, 3, 6);
-      ctx.fillStyle = PAL.d; ctx.fillRect(sx, sy - 4, 1, 5);
-    }
-    // 看板
-    const sxc = px + (w >> 1) - 6, syc = y1 - 14;
-    ctx.fillStyle = PAL['0']; ctx.fillRect(sxc - 1, syc - 1, 14, 11);
-    ctx.fillStyle = PAL.e; ctx.fillRect(sxc, syc, 12, 9);
-    ctx.fillStyle = PAL.f; ctx.fillRect(sxc + 1, syc + 1, 10, 7);
-    ctx.fillStyle = PAL.c;
-    ctx.fillRect(sxc + 2, syc + 3, 8, 1);
-    ctx.fillRect(sxc + 2, syc + 5, 5, 1);
-    ctx.fillStyle = PAL.d; ctx.fillRect(px + (w >> 1) - 1, syc + 10, 2, 5);
-    return;
-  }
-  const bodyTop = py + 14;
-  const bodyH = h - 14;
-  // 壁
-  ctx.fillStyle = PAL['0'];
-  ctx.fillRect(px - 1, bodyTop - 1, w + 2, bodyH + 1);
-  ctx.fillStyle = b.id === 'sage' ? PAL['2'] : PAL.f;
-  ctx.fillRect(px, bodyTop, w, bodyH);
-  ctx.fillStyle = b.id === 'sage' ? PAL['3'] : PAL.g;
-  for (let x = 0; x < w; x += 2) ctx.fillRect(px + x, bodyTop, 1, bodyH);
-  ctx.fillStyle = b.id === 'sage' ? PAL['1'] : PAL.e;
-  ctx.fillRect(px, bodyTop + bodyH - 3, w, 3);
-  // 屋根
-  const roofC = { home: PAL.n, shop: PAL.j, smith: PAL.u, healer: PAL.a, sage: PAL.A, farm: PAL.r, well: PAL.w }[b.id] || PAL.n;
-  ctx.fillStyle = PAL['0'];
-  ctx.beginPath();
-  ctx.moveTo(px - 4, bodyTop + 1); ctx.lineTo(px + w / 2, py - 3); ctx.lineTo(px + w + 4, bodyTop + 1);
-  ctx.closePath(); ctx.fill();
-  ctx.fillStyle = roofC;
-  ctx.beginPath();
-  ctx.moveTo(px - 3, bodyTop); ctx.lineTo(px + w / 2, py - 1); ctx.lineTo(px + w + 3, bodyTop);
-  ctx.closePath(); ctx.fill();
-  ctx.globalAlpha = 0.35; ctx.fillStyle = PAL['0'];
-  ctx.beginPath();
-  ctx.moveTo(px + w / 2, py - 1); ctx.lineTo(px + w + 3, bodyTop); ctx.lineTo(px + w / 2, bodyTop);
-  ctx.closePath(); ctx.fill();
-  ctx.globalAlpha = 1;
-  // 扉
-  const dx = px + (w >> 1) - 4;
-  const dy = bodyTop + bodyH - 12;
-  ctx.fillStyle = PAL['0']; ctx.fillRect(dx - 1, dy - 1, 10, 13);
-  ctx.fillStyle = PAL.c; ctx.fillRect(dx, dy, 8, 12);
-  ctx.fillStyle = PAL.d; ctx.fillRect(dx + 1, dy + 1, 6, 10);
-  ctx.fillStyle = PAL.s; ctx.fillRect(dx + 6, dy + 6, 1, 2);
-  // 窓
-  if (bodyH > 18) {
-    for (const wx of [px + 3, px + w - 8]) {
-      ctx.fillStyle = PAL['0']; ctx.fillRect(wx, bodyTop + 4, 6, 6);
-      ctx.fillStyle = PAL.s; ctx.fillRect(wx + 1, bodyTop + 5, 4, 4);
-      ctx.fillStyle = PAL.q; ctx.fillRect(wx + 3, bodyTop + 5, 1, 4);
-    }
-  }
-  // 看板
-  if (b.id !== 'home') {
-    ctx.fillStyle = PAL['0']; ctx.fillRect(px + w - 6, bodyTop + bodyH - 20, 5, 7);
-    ctx.fillStyle = PAL.g; ctx.fillRect(px + w - 5, bodyTop + bodyH - 19, 3, 5);
-  }
-}
-
-// ---------------------------------------------------------------------------
-
-const drawables = [];
-
-function drawScene(g) {
-  const ctx = wctx;
-  const level = g.level;
-  const [sx, sy] = FX.shakeOffset();
-  const camx = Math.round(cam.x - view.w / 2 + sx);
-  const camy = Math.round(cam.y - view.h / 2 + sy);
-  g.camx = camx; g.camy = camy;
-
-  ctx.fillStyle = level.kind === 'dungeon' ? '#0d0b12' : PAL.h;
-  ctx.fillRect(0, 0, view.w, view.h);
-
-  const x0 = Math.max(0, Math.floor(camx / TILE));
-  const y0 = Math.max(0, Math.floor(camy / TILE));
-  const x1 = Math.min(level.w - 1, Math.ceil((camx + view.w) / TILE));
-  const y1 = Math.min(level.h - 1, Math.ceil((camy + view.h) / TILE));
-
-  // --- 地面 ---
-  for (let y = y0; y <= y1; y++) {
-    for (let x = x0; x <= x1; x++) {
-      const t = level.ground[y * level.w + x];
-      const name = TERRAIN_NAME[t];
-      const px = x * TILE - camx, py = y * TILE - camy;
-      const set = TERRAIN_TILES[name];
-      const v = (t === T.WATER || t === T.DEEP) ? waterFrame : groundVariant(x, y);
-      ctx.drawImage(set[v], px, py);
-    }
-  }
-  // --- 地面のディザ境界 ---
-  for (let y = y0; y <= y1; y++) {
-    for (let x = x0; x <= x1; x++) {
-      const t = level.ground[y * level.w + x];
-      const prio = TERRAIN_PRIO[t];
-      const px = x * TILE - camx, py = y * TILE - camy;
-      const nb = [[0, -1, 0], [0, 1, 1], [-1, 0, 2], [1, 0, 3]];
-      for (const [ox, oy, dir] of nb) {
-        const nx = x + ox, ny = y + oy;
-        if (!level.inb(nx, ny)) continue;
-        const nt = level.ground[ny * level.w + nx];
-        if (nt === t) continue;
-        if (TERRAIN_PRIO[nt] <= prio) continue;
-        const e = EDGE[TERRAIN_NAME[nt]];
-        if (e) ctx.drawImage(e[dir], px, py);
-      }
-    }
-  }
-
-  // --- 低いオブジェクト・装飾 ---
-  drawables.length = 0;
-  for (let y = y0; y <= y1; y++) {
-    for (let x = x0; x <= x1; x++) {
-      const id = level.obj[y * level.w + x];
-      if (!id) continue;
-      const def = OBJ_DEF[id];
-      const px = x * TILE - camx, py = y * TILE - camy;
-      if (!def) continue;
-      if (def.tall) { drawables.push({ sortY: y * TILE + TILE, kind: 'obj', id, px, py, x, y }); continue; }
-      if (def.spr) ctx.drawImage(objSprite(id, x, y), px, py);
-      else drawDecor(ctx, id, px, py, x, y);
-    }
-  }
-
-  // --- 奥行きソートして描画（建物・高い物・エンティティをまとめて）---
-  for (const b of level.buildings) {
-    if (b.x * TILE > camx + view.w || (b.x + b.w) * TILE < camx) continue;
-    if (b.y * TILE > camy + view.h + 40 || (b.y + b.h) * TILE < camy - 40) continue;
-    drawables.push({ sortY: (b.y + b.h) * TILE - 2, kind: 'bld', b });
-  }
-
-  ctx.save();
-  ctx.translate(-camx, -camy);
-  for (const e of g.drawList()) {
-    if (e.x < camx - 40 || e.x > camx + view.w + 40 || e.y < camy - 60 || e.y > camy + view.h + 60) continue;
-    drawables.push({ sortY: e.y, kind: 'ent', e });
-  }
-  drawables.sort((a, b) => a.sortY - b.sortY);
-  for (const d of drawables) {
-    if (d.kind === 'ent') { d.e.draw(ctx); continue; }
-    if (d.kind === 'bld') {
-      ctx.restore(); drawBuilding(ctx, d.b, camx, camy); ctx.save(); ctx.translate(-camx, -camy);
-      continue;
-    }
-    const def = OBJ_DEF[d.id];
-    if (def.spr) ctx.drawImage(objSprite(d.id, d.x, d.y), d.px + camx, d.py + camy);
-    else { ctx.restore(); drawDecor(ctx, d.id, d.px, d.py, d.x, d.y); ctx.save(); ctx.translate(-camx, -camy); }
-  }
-  FX.drawParticles(ctx);
-  ctx.restore();
-
-  // --- 明かり（ダンジョン）---
-  if (level.dark) drawLight(g, camx, camy);
-
-  // --- 画面フラッシュ ---
-  if (FX.fx.flash > 0.01) {
-    ctx.globalAlpha = clamp(FX.fx.flash, 0, 1);
-    ctx.fillStyle = FX.fx.flashColor;
-    ctx.fillRect(0, 0, view.w, view.h);
-    ctx.globalAlpha = 1;
-  }
-
-  // --- 文字の浮き上がり ---
-  ctx.save();
-  ctx.translate(-camx, -camy);
-  ctx.font = 'bold 8px ui-monospace, monospace';
-  ctx.textAlign = 'center';
-  for (const t of FX.fx.texts) {
-    const a = clamp(t.life / t.max, 0, 1);
-    ctx.globalAlpha = a > 0.5 ? 1 : a * 2;
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = '#000';
-    ctx.font = `bold ${t.size}px ui-monospace, monospace`;
-    ctx.strokeText(t.text, Math.round(t.x), Math.round(t.y));
-    ctx.fillStyle = t.color;
-    ctx.fillText(t.text, Math.round(t.x), Math.round(t.y));
-  }
-  ctx.globalAlpha = 1;
-  ctx.restore();
-}
-
-function drawLight(g, camx, camy) {
-  const level = g.level;
-  lctx.globalCompositeOperation = 'source-over';
-  lctx.fillStyle = 'rgba(6,4,10,0.90)';
-  lctx.fillRect(0, 0, view.w, view.h);
-  lctx.globalCompositeOperation = 'destination-out';
-
-  const addLight = (x, y, r, strength = 1) => {
-    if (x < -r || y < -r || x > view.w + r || y > view.h + r) return;
-    const grd = lctx.createRadialGradient(x, y, 0, x, y, r);
-    grd.addColorStop(0, `rgba(0,0,0,${strength})`);
-    grd.addColorStop(0.55, `rgba(0,0,0,${strength * 0.72})`);
-    grd.addColorStop(1, 'rgba(0,0,0,0)');
-    lctx.fillStyle = grd;
-    lctx.fillRect(x - r, y - r, r * 2, r * 2);
+/**
+ * @param {object} opt
+ *   target : {x,y} を持つ実体（追従する）。省略時は x,y 固定
+ *   text   : 表示する文（\n 可）
+ *   life   : 表示時間（秒）
+ *   tone   : 'normal' | 'boss' | 'think'
+ */
+function say(opt) {
+  const b = {
+    target: opt.target || null,
+    x: opt.x ?? 0, y: opt.y ?? 0,
+    dy: opt.dy ?? -22,
+    text: String(opt.text || ''),
+    life: opt.life ?? 2.6,
+    max: opt.life ?? 2.6,
+    t: 0,
+    tone: opt.tone || 'normal',
   };
-
-  const flicker = 1 + Math.sin(performance.now() / 130) * 0.04;
-  addLight(g.player.x - camx, g.player.y - camy - 6, 74 * flicker, 1);
-
-  const x0 = Math.max(0, Math.floor(camx / TILE)), y0 = Math.max(0, Math.floor(camy / TILE));
-  const x1 = Math.min(level.w - 1, Math.ceil((camx + view.w) / TILE));
-  const y1 = Math.min(level.h - 1, Math.ceil((camy + view.h) / TILE));
-  for (let y = y0; y <= y1; y++)
-    for (let x = x0; x <= x1; x++)
-      {
-        const ob = level.obj[y * level.w + x];
-        if (ob === O.TORCH)
-          addLight(x * TILE + 8 - camx, y * TILE + 5 - camy, 42 * (1 + Math.sin(performance.now() / 90 + x) * 0.07), 0.95);
-        else if (ob === O.RELIC)
-          addLight(x * TILE + 8 - camx, y * TILE + 6 - camy, 56 * (1 + Math.sin(performance.now() / 260) * 0.10), 1);
-        else if (ob === O.CHEST)
-          addLight(x * TILE + 8 - camx, y * TILE + 8 - camy, 15, 0.42);
-      }
-  for (const b of g.bombs) addLight(b.x - camx, b.y - camy - 4, 22, 0.7);
-  for (const e of g.enemies) if (e.boss && !e.dead) addLight(e.x - camx, e.y - camy - 10, 40, 0.6);
-
-  lctx.globalCompositeOperation = 'source-over';
-  wctx.drawImage(light, 0, 0);
-}
-
-/** 論理画面を実画面へ拡大転送 */
-function present() {
-  sctx.setTransform(1, 0, 0, 1, 0, 0);
-  sctx.fillStyle = '#08070c';
-  sctx.fillRect(0, 0, screen.width, screen.height);
-  const d = view.dpr;
-  sctx.imageSmoothingEnabled = false;
-  sctx.drawImage(world, 0, 0, view.w, view.h,
-    Math.round(view.ox * d), Math.round(view.oy * d),
-    Math.round(view.cssW * d), Math.round(view.cssH * d));
-}
-
-return { view, cam, initRender, getCtx, resize, toScreen, toWorldPx, beginUi, endUi, snapCamera, updateCamera, setTime, drawScene, present };
-})();
-
-const __M_input = (function () {
-const { clamp } = __M_util;
-const { view } = __M_render;
-// ---------------------------------------------------------------------------
-// input.js — 片手操作用の入力（フローティング仮想スティック＋ボタン＋キーボード）
-// ---------------------------------------------------------------------------
-
-const STICK_MAX = 34;        // CSS px。ここまで倒すと最大速度
-const STICK_DEAD = 5;
-const CHARGE_HOLD = 0.42;    // その場でこれ以上押し続けたら「ため」
-let gestureTap = false, gestureCharge = false;
-
-const input = {
-  // 移動ベクトル (-1..1)
-  mx: 0, my: 0, mlen: 0,
-  // ボタン状態
-  a: false, aPressed: false, aReleased: false, aHold: 0,
-  b: false, bPressed: false,
-  menuPressed: false, mapPressed: false,
-  // その他
-  anyPressed: false,
-  taps: [],                  // {x,y} 画面座標（CSS px）
-  stick: { active: false, ox: 0, oy: 0, x: 0, y: 0, id: -1 },
-  // 片手ジェスチャ：その場で押す＝攻撃／長押し＝ためる／ドラッグ＝移動
-  gHeld: 0,          // 押している時間（動かしていないあいだだけ伸びる）
-  gStill: false,     // いま「その場押し」状態か
-  gTap: false,       // この 1 フレームで軽いタップとして離された
-  gCharge: false,    // この 1 フレームで「ためた状態」から離された
-  buttons: [],               // {id, x, y, r}（毎フレーム UI が登録）
-  pressedIds: new Set(),     // このフレームに押されたボタン ID
-  usingTouch: false,
-  stickEnabled: true,   // メニュー表示中は false にしてタップ扱いにする
-};
-
-const keys = new Set();
-const pointers = new Map(); // id -> {role, btn, sx, sy, x, y}
-let canvasEl = null;
-let prevA = false, prevB = false;
-let touchA = false, touchB = false;   // タッチ由来の押下（キーボードと混ざらないよう分離）
-const pressedThisFrame = new Set();
-
-function setButtons(list) { input.buttons = list; }
-
-function hitButton(x, y) {
-  // 後ろに登録されたものを優先（手前に描かれる想定）
-  for (let i = input.buttons.length - 1; i >= 0; i--) {
-    const b = input.buttons[i];
-    const dx = x - b.x, dy = y - b.y;
-    if (b.r != null) { if (dx * dx + dy * dy <= b.r * b.r) return b; }
-    else if (Math.abs(dx) <= b.hw && Math.abs(dy) <= b.hh) return b;
+  // 同じ相手のふきだしは重ねない
+  if (b.target) {
+    for (let i = bubbles.length - 1; i >= 0; i--)
+      if (bubbles[i].target === b.target) bubbles.splice(i, 1);
   }
-  return null;
+  bubbles.push(b);
+  return b;
 }
 
-function localPos(e) {
-  const r = canvasEl.getBoundingClientRect();
-  // 座標系は「ゲーム領域の左上が原点」に揃える（横長画面の黒帯ぶんを引く）
-  return { x: e.clientX - r.left - view.ox, y: e.clientY - r.top - view.oy };
+/** 何行かを ひとつずつ 順に見せる（世界は止めない） */
+const queues = [];
+function sayQueue(target, lines, opt = {}) {
+  if (!lines || !lines.length) return;
+  const per = opt.per ?? 2.9;
+  queues.push({ target, lines: lines.slice(), i: 0, t: 0, per, tone: opt.tone || 'normal' });
+  say({ target, text: lines[0], life: per, tone: opt.tone || 'normal' });
 }
 
-function onDown(e) {
-  if (e.pointerType === 'touch') input.usingTouch = true;
-  const p = localPos(e);
-  const btn = hitButton(p.x, p.y);
-  if (btn) {
-    pointers.set(e.pointerId, { role: 'btn', btn: btn.id, ...p });
-    pressedThisFrame.add(btn.id);
-    if (btn.id === 'a') touchA = true;
-    if (btn.id === 'b') touchB = true;
-    input.anyPressed = true;
-    return;
-  }
-  // スティックは画面下 2/3 のどこからでも出せる
-  if (input.stickEnabled && !input.stick.active && p.y > view.cssH * 0.34) {
-    input.stick.active = true;
-    input.stick.id = e.pointerId;
-    input.stick.ox = p.x; input.stick.oy = p.y;
-    input.stick.x = p.x; input.stick.y = p.y;
-    input.gHeld = 0; input.gStill = true;
-    pointers.set(e.pointerId, { role: 'stick', sx: p.x, sy: p.y, t0: performance.now(), far: 0, ...p });
-    input.anyPressed = true;
-    return;
-  }
-  pointers.set(e.pointerId, { role: 'tap', sx: p.x, sy: p.y, ...p });
-  input.anyPressed = true;
-}
+function clearBubbles() { bubbles.length = 0; queues.length = 0; }
 
-function onMove(e) {
-  const rec = pointers.get(e.pointerId);
-  if (!rec) return;
-  const p = localPos(e);
-  rec.x = p.x; rec.y = p.y;
-  if (rec.role === 'stick') {
-    input.stick.x = p.x; input.stick.y = p.y;
-    rec.far = Math.max(rec.far || 0, Math.hypot(p.x - rec.sx, p.y - rec.sy));
-    let dx = p.x - input.stick.ox, dy = p.y - input.stick.oy;
-    const len = Math.hypot(dx, dy);
-    // 大きく倒したら原点を引きずる（指がずれても操作を続けられる）
-    if (len > STICK_MAX) {
-      input.stick.ox += dx * (1 - STICK_MAX / len);
-      input.stick.oy += dy * (1 - STICK_MAX / len);
-      dx = p.x - input.stick.ox; dy = p.y - input.stick.oy;
+function updateBubbles(dt) {
+  for (let q = queues.length - 1; q >= 0; q--) {
+    const Q = queues[q];
+    Q.t += dt;
+    if (Q.t >= Q.per) {
+      Q.t = 0; Q.i++;
+      if (Q.i >= Q.lines.length || (Q.target && Q.target.dead)) { queues.splice(q, 1); continue; }
+      say({ target: Q.target, text: Q.lines[Q.i], life: Q.per, tone: Q.tone });
     }
   }
-}
-
-function onUp(e) {
-  const rec = pointers.get(e.pointerId);
-  pointers.delete(e.pointerId);
-  if (!rec) return;
-  if (rec.role === 'stick') {
-    input.stick.active = false;
-    input.stick.id = -1;
-    const held = (performance.now() - (rec.t0 || 0)) / 1000;
-    if ((rec.far || 0) < 14) {
-      if (input.gHeld >= CHARGE_HOLD) gestureCharge = true;
-      else if (held < 0.45) gestureTap = true;
-    }
-    input.gHeld = 0; input.gStill = false;
-  } else if (rec.role === 'btn') {
-    // 同じボタンを押している別の指がなければ離す
-    let still = false;
-    for (const r of pointers.values()) if (r.role === 'btn' && r.btn === rec.btn) still = true;
-    if (!still) {
-      if (rec.btn === 'a') touchA = false;
-      if (rec.btn === 'b') touchB = false;
-    }
-  } else if (rec.role === 'tap') {
-    const moved = Math.hypot(rec.x - rec.sx, rec.y - rec.sy);
-    if (moved < 18) input.taps.push({ x: rec.x, y: rec.y });
+  for (let i = bubbles.length - 1; i >= 0; i--) {
+    const b = bubbles[i];
+    b.t += dt;
+    b.life -= dt;
+    if (b.life <= 0 || (b.target && b.target.dead)) bubbles.splice(i, 1);
   }
 }
 
-const KEY_A = new Set(['Space', 'KeyJ', 'KeyZ', 'Enter']);
-const KEY_B = new Set(['KeyK', 'KeyX', 'ShiftLeft', 'ShiftRight']);
-const KEY_MENU = new Set(['Escape', 'KeyP']);
-const KEY_MAP = new Set(['KeyM', 'Tab']);
+/** ctx は UI レイヤー（CSS px）。toScreen は world→画面 の変換関数。 */
+function drawBubbles(ctx, toScreen, S) {
+  for (const b of bubbles) {
+    const wx = b.target ? b.target.x : b.x;
+    const wy = (b.target ? b.target.y : b.y) + b.dy - (b.target?.z || 0);
+    const p = toScreen(wx, wy);
 
-function initInput(canvas) {
-  canvasEl = canvas;
-  const opt = { passive: false };
-  canvas.addEventListener('pointerdown', (e) => {
-    e.preventDefault();
-    canvas.setPointerCapture?.(e.pointerId);
-    onDown(e);
-  }, opt);
-  canvas.addEventListener('pointermove', (e) => { e.preventDefault(); onMove(e); }, opt);
-  canvas.addEventListener('pointerup', (e) => { e.preventDefault(); onUp(e); }, opt);
-  canvas.addEventListener('pointercancel', (e) => { onUp(e); }, opt);
-  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-  window.addEventListener('blur', () => {
-    pointers.clear(); keys.clear();
-    touchA = touchB = false;
-    input.a = input.b = false; input.stick.active = false;
-  });
+    // 出るときは ぷるっと、消えぎわは すっと
+    const inT = clamp(b.t / 0.16, 0, 1);
+    const outT = clamp(b.life / 0.24, 0, 1);
+    const scale = easeOutBack(inT);
+    const alpha = outT;
+    if (scale <= 0.01) continue;
 
-  window.addEventListener('keydown', (e) => {
-    if (e.repeat) return;
-    keys.add(e.code);
-    if (KEY_A.has(e.code) || KEY_B.has(e.code) || KEY_MENU.has(e.code) || KEY_MAP.has(e.code)
-        || e.code.startsWith('Arrow') || e.code === 'Space' || e.code === 'Tab') e.preventDefault();
-    if (KEY_MENU.has(e.code)) pressedThisFrame.add('menu');
-    if (KEY_MAP.has(e.code)) pressedThisFrame.add('map');
-    input.anyPressed = true;
-  });
-  window.addEventListener('keyup', (e) => keys.delete(e.code));
-}
+    const size = (b.tone === 'boss' ? 15 : 13) * S;
+    ctx.font = `700 ${size}px ${FONT}`;
+    const lines = b.text.split('\n');
+    let tw = 0;
+    for (const l of lines) tw = Math.max(tw, ctx.measureText(l).width);
+    const padX = 11 * S, padY = 8 * S, lh = size * 1.35;
+    const w = tw + padX * 2;
+    const h = lines.length * lh + padY * 2 - (lh - size) * 0.5;
+    const tail = 9 * S;
 
-/** 毎フレーム先頭で呼ぶ */
-function updateInput(dt) {
-  // --- 移動 ---
-  let mx = 0, my = 0;
-  if (keys.has('KeyA') || keys.has('ArrowLeft')) mx -= 1;
-  if (keys.has('KeyD') || keys.has('ArrowRight')) mx += 1;
-  if (keys.has('KeyW') || keys.has('ArrowUp')) my -= 1;
-  if (keys.has('KeyS') || keys.has('ArrowDown')) my += 1;
-  let len = Math.hypot(mx, my);
-  if (len > 0) { mx /= len; my /= len; len = 1; }
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(p.x, p.y);
+    ctx.scale(scale, scale);
+    ctx.translate(0, -h - tail);
 
-  if (input.stick.active) {
-    const dx = input.stick.x - input.stick.ox;
-    const dy = input.stick.y - input.stick.oy;
-    const d = Math.hypot(dx, dy);
-    if (d > STICK_DEAD) {
-      const t = clamp((d - STICK_DEAD) / (STICK_MAX - STICK_DEAD), 0, 1);
-      mx = (dx / d) * t; my = (dy / d) * t;
-      len = t;
-    } else { mx = 0; my = 0; len = 0; }
+    // 影
+    ctx.fillStyle = 'rgba(0,0,0,0.30)';
+    bubblePath(ctx, -w / 2, 2 * S, w, h, 7 * S, tail);
+    ctx.fill();
+    // 本体
+    ctx.fillStyle = b.tone === 'boss' ? '#f4e6e6' : '#ffffff';
+    bubblePath(ctx, -w / 2, 0, w, h, 7 * S, tail);
+    ctx.fill();
+    ctx.strokeStyle = b.tone === 'boss' ? '#5a2230' : '#1d1a24';
+    ctx.lineWidth = 2 * S;
+    ctx.stroke();
+
+    ctx.fillStyle = b.tone === 'boss' ? '#5a1c28' : '#181420';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    lines.forEach((l, i) => ctx.fillText(l, 0, padY + i * lh - 1 * S));
+    ctx.restore();
   }
-  input.mx = mx; input.my = my; input.mlen = len;
-
-  // 片手ジェスチャの状態更新
-  if (input.stick.active) {
-    const rec = pointers.get(input.stick.id);
-    const far = rec ? (rec.far || 0) : 99;
-    if (far < 14 && len < 0.18) { input.gHeld += dt; input.gStill = true; }
-    else { input.gHeld = 0; input.gStill = false; }
-  }
-  input.gTap = gestureTap; gestureTap = false;
-  input.gCharge = gestureCharge; gestureCharge = false;
-
-  // --- ボタン ---
-  let keyA = false, keyB = false;
-  for (const k of keys) { if (KEY_A.has(k)) keyA = true; if (KEY_B.has(k)) keyB = true; }
-  // 1 フレームより短いタップも取りこぼさないよう、押下は必ず 1 度は拾う
-  const aNow = touchA || keyA || pressedThisFrame.has('a');
-  const bNow = touchB || keyB || pressedThisFrame.has('b');
-  input.aPressed = aNow && !prevA;
-  input.aReleased = !aNow && prevA;
-  input.bPressed = bNow && !prevB;
-  input.aHold = aNow ? input.aHold + dt : 0;
-  prevA = aNow; prevB = bNow;
-  input.a = aNow; input.b = bNow;
-
-  input.menuPressed = pressedThisFrame.has('menu');
-  input.mapPressed = pressedThisFrame.has('map');
-  input.pressedIds = pressedThisFrame;
+  ctx.globalAlpha = 1;
 }
 
-/** 毎フレーム末尾で呼ぶ */
-function endInputFrame() {
-  input.taps.length = 0;
-  input.anyPressed = false;
-  pressedThisFrame.clear();
+function bubblePath(ctx, x, y, w, h, r, tail) {
+  const rr = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.lineTo(x + w - rr, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + rr);
+  ctx.lineTo(x + w, y + h - rr);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - rr, y + h);
+  // しっぽ（右下寄り）
+  ctx.lineTo(x + w * 0.60, y + h);
+  ctx.lineTo(x + w * 0.53, y + h + tail);
+  ctx.lineTo(x + w * 0.47, y + h);
+  ctx.lineTo(x + rr, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - rr);
+  ctx.lineTo(x, y + rr);
+  ctx.quadraticCurveTo(x, y, x + rr, y);
+  ctx.closePath();
 }
 
-/** メニュー等で入力状態をリセット */
-function resetInput() {
-  input.aPressed = input.bPressed = input.aReleased = false;
-  input.aHold = 0;
-  input.taps.length = 0;
-}
-
-/** ボタンの押しっぱなしを打ち切る（画面遷移時など） */
-function clearHeld() {
-  touchA = touchB = false;
-  gestureTap = gestureCharge = false;
-  input.gTap = input.gCharge = false;
-  input.gHeld = 0; input.gStill = false;
-  prevA = prevB = true;   // 次フレームで pressed が立たないように
-  input.a = input.b = false;
-  input.aHold = 0;
-}
-
-
-return { input, setButtons, initInput, updateInput, endInputFrame, resetInput, clearHeld };
+return { bubbles, say, sayQueue, clearBubbles, updateBubbles, drawBubbles };
 })();
 
 const __M_entities = (function () {
@@ -3163,6 +2984,8 @@ class Entity {
 // ---------------------------------------------------------------------------
 // プレイヤー
 // ---------------------------------------------------------------------------
+const ROLL = { dur: 0.36, speed: 175, iframe: 0.26, cool: 0.10 };
+
 class Player extends Entity {
   constructor(x, y) {
     super(x, y);
@@ -3193,12 +3016,36 @@ class Player extends Entity {
     this.relics = 0;
     this.deadT = 0;
     this.spawnGuard = 0.4;
+    // 回避（ローリング）
+    this.roll = 0;
+    this.rollDir = { x: 0, y: 1 };
+    this.rollCd = 0;
+    this.iframe = 0;
+    this.trail = [];
+  }
+
+  get rolling() { return this.roll > 0; }
+
+  /** 払い入力で ころがる。無敵は序盤だけ。 */
+  startRoll(dx, dy) {
+    if (this.roll > 0 || this.rollCd > 0 || this.hp <= 0) return false;
+    const l = Math.hypot(dx, dy) || 1;
+    this.rollDir = { x: dx / l, y: dy / l };
+    this.roll = ROLL.dur;
+    this.rollCd = ROLL.dur + ROLL.cool;
+    this.iframe = ROLL.iframe;
+    this.attack = 0; this.spin = 0; this.charge = 0;
+    this.dir = dirFromVec(this.rollDir.x, this.rollDir.y);
+    this.trail.length = 0;
+    sfx('dash');
+    FX.dust(this.x, this.y, 4);
+    return true;
   }
 
   get dmg() { return 2 + this.swordLv; }
 
   hurt(g, amount, fromX, fromY) {
-    if (this.invuln > 0 || this.spawnGuard > 0 || this.hp <= 0) return false;
+    if (this.invuln > 0 || this.iframe > 0 || this.spawnGuard > 0 || this.hp <= 0) return false;
     this.hp = Math.max(0, this.hp - amount);
     this.invuln = PLAYER.invuln;
     this.hurtT = 0.3;
@@ -3260,6 +3107,23 @@ class Player extends Entity {
     this.cooldown = Math.max(0, this.cooldown - dt);
     this.comboT = Math.max(0, this.comboT - dt);
     this.spawnGuard = Math.max(0, this.spawnGuard - dt);
+    this.rollCd = Math.max(0, this.rollCd - dt);
+    this.iframe = Math.max(0, this.iframe - dt);
+
+    // --- 回避中はほかの操作を受けつけない ---
+    if (this.roll > 0) {
+      this.roll = Math.max(0, this.roll - dt);
+      const k = 1 - this.roll / ROLL.dur;
+      const sp = ROLL.speed * (1 - k * 0.45);
+      this.trail.push({ x: this.x, y: this.y, dir: this.dir, a: 1 });
+      if (this.trail.length > 5) this.trail.shift();
+      for (const tr of this.trail) tr.a *= 0.86;
+      this.moveBy(g, this.rollDir.x * sp * dt, this.rollDir.y * sp * dt);
+      if (Math.random() < 0.5) FX.dust(this.x, this.y, 1);
+      this.applyKnockback(dt, g);
+      return;
+    }
+    if (this.trail.length) this.trail.length = 0;
 
     // 攻撃・ため・道具の入力は main.js の simulate() が一括で扱う
 
@@ -3290,6 +3154,26 @@ class Player extends Entity {
   draw(ctx) {
     this.drawShadow(ctx);
     const frames = SPR.hero[this.dir];
+
+    // --- 回避中は くるりと回る（残像つき）---
+    if (this.roll > 0) {
+      const k = 1 - this.roll / ROLL.dur;
+      for (const tr of this.trail) {
+        if (tr.a < 0.06) continue;
+        ctx.globalAlpha = tr.a * 0.5;
+        const sp = SPR.hero[tr.dir][0];
+        ctx.drawImage(sp, Math.round(tr.x - 8), Math.round(tr.y - 16));
+      }
+      ctx.globalAlpha = 1;
+      const spr = frames[Math.floor(k * 4) % 2];
+      ctx.save();
+      ctx.translate(Math.round(this.x), Math.round(this.y - 8));
+      ctx.rotate(k * TAU * (this.rollDir.x < 0 ? -1 : 1));
+      ctx.drawImage(this.iframe > 0 && Math.floor(k * 12) % 2 === 0 ? whiteOf(spr) : spr, -8, -8);
+      ctx.restore();
+      return;
+    }
+
     const f = this.walkT > 0 ? (Math.floor(this.walkT) % 2) : 0;
     const bob = this.walkT > 0 && f === 1 ? -1 : 0;
     const flashing = this.invuln > 0 && Math.floor(this.invuln * 18) % 2 === 0;
@@ -3762,6 +3646,8 @@ class Npc extends Entity {
     this.cd = rng.range(1, 3);
     this.vx = 0; this.vy = 0;
     this.static = !!data.static;
+    this.spr = data.spr || null;      // 村人以外の見た目（帽子の人など）
+    this.bob = !!data.bob;
   }
   update(dt, g) {
     this.t += dt;
@@ -3793,6 +3679,11 @@ class Npc extends Entity {
   }
   draw(ctx) {
     this.drawShadow(ctx);
+    if (this.spr && SPR[this.spr]) {
+      const b = this.bob ? Math.round(Math.sin(this.t * 2) * 1.2) : 0;
+      this.blit(ctx, SPR[this.spr], 0, b);
+      return;
+    }
     const set = SPR.villagers[this.kind];
     const f = this.walkT > 0 ? Math.floor(this.walkT) % 2 : 0;
     this.blit(ctx, set[this.dir][f], 0, this.walkT > 0 && f === 1 ? -1 : 0);
@@ -3847,13 +3738,1522 @@ class Bomb extends Entity {
   }
 }
 
-return { Entity, Player, ENEMY_DEF, Enemy, Projectile, Pickup, Npc, Bomb };
+return { Entity, ROLL, Player, ENEMY_DEF, Enemy, Projectile, Pickup, Npc, Bomb };
+})();
+
+const __M_hazard = (function () {
+const { clamp, dist, TAU } = __M_util;
+const FX = __M_fx;
+const { sfx } = __M_audio;
+// ---------------------------------------------------------------------------
+// hazard.js — 地面に降ってくる危険（短剣の雨・腕のなぎ払い）
+//   どれも「予告 → 発生 → 余韻」の三段。予告のあいだに逃げるのが遊び。
+// ---------------------------------------------------------------------------
+
+function updateHazards(dt, g) {
+  const p = g.player;
+  for (const h of g.hazards) {
+    h.t += dt;
+    if (h.t < 0) continue;
+
+    if (h.kind === 'dagger') {
+      if (!h.hit && h.t >= h.warn) {
+        h.hit = true;
+        sfx('hit');
+        FX.shake(2, 0.12);
+        FX.burst(h.x, h.y, 8, ['#cfd6e0', '#8b8b97', '#3e6b52'], { spMax: 70 });
+        if (dist(p.x, p.y, h.x, h.y) < h.r) p.hurt(g, h.dmg, h.x, h.y - 20);
+      }
+      if (h.t > h.warn + 1.1) h.done = true;
+
+    } else if (h.kind === 'sweep') {
+      const total = h.warn + h.sweep;
+      if (h.t >= h.warn) {
+        const k = clamp((h.t - h.warn) / h.sweep, 0, 1);
+        const w = g.level.w * 16;
+        h.cur = h.dir > 0 ? -30 + k * (w + 60) : w + 30 - k * (w + 60);
+        if (!h.armed) { h.armed = true; sfx('swingBig'); FX.shake(4, 0.3); }
+        if (Math.abs(p.y - h.y) < h.h && Math.abs(p.x - h.cur) < 26) {
+          p.hurt(g, h.dmg, h.cur, h.y);
+        }
+        if (Math.random() < 0.6) FX.dust(h.cur, h.y + 6, 1);
+      }
+      if (h.t > total + 0.2) h.done = true;
+
+    } else if (h.kind === 'quake') {
+      if (!h.hit && h.t >= h.warn) {
+        h.hit = true;
+        sfx('bomb'); FX.shake(8, 0.5);
+        FX.ring(h.x, h.y, { r0: 4, r1: h.r * 1.4, life: 0.4, color: '#cfe6d8', width: 2 });
+        if (dist(p.x, p.y, h.x, h.y) < h.r) p.hurt(g, h.dmg, h.x, h.y);
+      }
+      if (h.t > h.warn + 0.6) h.done = true;
+    }
+  }
+  for (let i = g.hazards.length - 1; i >= 0; i--) if (g.hazards[i].done) g.hazards.splice(i, 1);
+}
+
+/** 地面より上・エンティティより下に描くもの（予告のしるし） */
+function drawHazardsUnder(ctx, g) {
+  for (const h of g.hazards) {
+    if (h.t < 0) continue;
+    if (h.kind === 'dagger' && !h.hit) {
+      const k = clamp(h.t / h.warn, 0, 1);
+      ctx.globalAlpha = 0.30 + 0.30 * k;
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.ellipse(Math.round(h.x), Math.round(h.y), h.r * (0.35 + 0.65 * k), h.r * 0.45 * (0.35 + 0.65 * k), 0, 0, TAU);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = k > 0.7 && Math.floor(h.t * 18) % 2 === 0 ? '#ffb08c' : '#d65c4e';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.ellipse(Math.round(h.x), Math.round(h.y), h.r, h.r * 0.45, 0, 0, TAU);
+      ctx.stroke();
+    } else if (h.kind === 'sweep' && h.t < h.warn) {
+      const k = clamp(h.t / h.warn, 0, 1);
+      ctx.globalAlpha = 0.18 + 0.22 * k;
+      ctx.fillStyle = '#d65c4e';
+      ctx.fillRect(0, Math.round(h.y - h.h), g.level.w * 16, h.h * 2);
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = Math.floor(h.t * 16) % 2 === 0 ? '#ffb08c' : '#d65c4e';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, Math.round(h.y - h.h) + 0.5); ctx.lineTo(g.level.w * 16, Math.round(h.y - h.h) + 0.5);
+      ctx.moveTo(0, Math.round(h.y + h.h) - 0.5); ctx.lineTo(g.level.w * 16, Math.round(h.y + h.h) - 0.5);
+      ctx.stroke();
+    } else if (h.kind === 'quake' && !h.hit) {
+      const k = clamp(h.t / h.warn, 0, 1);
+      ctx.strokeStyle = '#d65c4e';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(Math.round(h.x), Math.round(h.y), h.r * k, 0, TAU);
+      ctx.stroke();
+    }
+  }
+}
+
+/** エンティティより上に描くもの（落ちてくる剣・振り抜かれる腕） */
+function drawHazardsOver(ctx, g) {
+  for (const h of g.hazards) {
+    if (h.t < 0) continue;
+    if (h.kind === 'dagger') {
+      if (!h.hit) {
+        // 空から降ってくる短剣
+        const k = clamp(h.t / h.warn, 0, 1);
+        const y = h.y - (1 - k) * 150;
+        ctx.fillStyle = '#c9cfd8';
+        ctx.fillRect(Math.round(h.x) - 1, Math.round(y) - 14, 2, 14);
+        ctx.fillStyle = '#8b8b97';
+        ctx.fillRect(Math.round(h.x) - 4, Math.round(y) - 18, 8, 2);
+        ctx.fillStyle = '#6f4b2f';
+        ctx.fillRect(Math.round(h.x) - 1, Math.round(y) - 24, 2, 6);
+      } else {
+        // 刺さったまま しばらく残る
+        const a = clamp(1 - (h.t - h.warn) / 1.1, 0, 1);
+        ctx.globalAlpha = a;
+        ctx.fillStyle = '#c9cfd8';
+        ctx.fillRect(Math.round(h.x) - 1, Math.round(h.y) - 9, 2, 9);
+        ctx.fillStyle = '#8b8b97';
+        ctx.fillRect(Math.round(h.x) - 4, Math.round(h.y) - 13, 8, 2);
+        ctx.globalAlpha = 1;
+      }
+    } else if (h.kind === 'sweep' && h.t >= h.warn) {
+      const x = Math.round(h.cur);
+      ctx.fillStyle = '#2d2635';
+      ctx.beginPath();
+      ctx.ellipse(x, Math.round(h.y), 26, h.h, 0, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = '#1a1622';
+      ctx.beginPath();
+      ctx.ellipse(x - h.dir * 8, Math.round(h.y), 18, h.h * 0.7, 0, 0, TAU);
+      ctx.fill();
+      ctx.globalAlpha = 0.35;
+      ctx.fillStyle = '#8f86a8';
+      ctx.fillRect(x - h.dir * 70, Math.round(h.y - h.h * 0.5), 70, h.h);
+      ctx.globalAlpha = 1;
+    }
+  }
+}
+
+return { updateHazards, drawHazardsUnder, drawHazardsOver };
+})();
+
+const __M_render = (function () {
+const { TILE, VIEW_W, VIEW_H_MIN, VIEW_H_MAX } = __M_config;
+const { clamp, hash2, lerp, TAU } = __M_util;
+const { SPR, TERRAIN_TILES, EDGE, PAL, makeCanvas } = __M_art;
+const { T, O, TERRAIN_NAME, TERRAIN_PRIO, OBJ_DEF } = __M_world;
+const FX = __M_fx;
+const { drawArenaBackdrop } = __M_arena;
+const { drawHazardsUnder, drawHazardsOver } = __M_hazard;
+// ---------------------------------------------------------------------------
+// render.js — カメラ・タイル描画・奥行きソート・ダンジョンの明かり
+// ---------------------------------------------------------------------------
+
+const view = {
+  w: VIEW_W, h: 300,          // 論理解像度
+  scale: 2,                   // 表示倍率
+  ox: 0, oy: 0,               // ゲーム領域の左上（ウィンドウ内の CSS px）
+  cssW: 0, cssH: 0,           // ゲーム領域の大きさ（CSS px）＝ UI の座標系
+  winW: 0, winH: 0,           // ウィンドウ全体
+  dpr: 1,
+};
+
+const cam = { x: 0, y: 0, tx: 0, ty: 0 };
+
+let screen = null, sctx = null;      // 表示用（デバイス解像度）
+let world = null, wctx = null;       // ゲーム画面（論理解像度）
+let light = null, lctx = null;       // 明かり用
+
+function initRender(canvas) {
+  screen = canvas;
+  sctx = canvas.getContext('2d', { alpha: false });
+  sctx.imageSmoothingEnabled = false;
+  return { screen, sctx };
+}
+
+function getCtx() { return { sctx, wctx, screen, world }; }
+
+function resize() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  const winW = window.innerWidth, winH = window.innerHeight;
+  view.winW = winW; view.winH = winH; view.dpr = dpr;
+
+  screen.style.width = winW + 'px';
+  screen.style.height = winH + 'px';
+  screen.width = Math.round(winW * dpr);
+  screen.height = Math.round(winH * dpr);
+  sctx.imageSmoothingEnabled = false;
+
+  // 論理解像度：横幅は固定。縦は端末比率に合わせるが、
+  // 横長画面では縦がはみ出さないよう倍率のほうを下げる（左右に黒帯）。
+  const scale = Math.min(winW / VIEW_W, winH / VIEW_H_MIN);
+  view.w = VIEW_W;
+  view.h = Math.round(clamp(winH / scale, VIEW_H_MIN, VIEW_H_MAX));
+  view.scale = scale;
+  view.cssW = view.w * scale;
+  view.cssH = view.h * scale;
+  view.ox = Math.round((winW - view.cssW) / 2);
+  view.oy = Math.round((winH - view.cssH) / 2);
+
+  if (!world || world.width !== view.w || world.height !== view.h) {
+    world = makeCanvas(view.w, view.h);
+    wctx = world.getContext('2d');
+    wctx.imageSmoothingEnabled = false;
+    light = makeCanvas(view.w, view.h);
+    lctx = light.getContext('2d');
+  }
+}
+
+/** 論理座標 → ゲーム領域内の CSS px */
+function toScreen(x, y) {
+  return { x: x * view.scale, y: y * view.scale };
+}
+/** ゲーム領域内の CSS px → 論理座標 */
+function toWorldPx(x, y) {
+  return { x: x / view.scale, y: y / view.scale };
+}
+
+/** UI 描画用の座標系（ゲーム領域の左上が原点）に切り替える */
+function beginUi() {
+  sctx.setTransform(view.dpr, 0, 0, view.dpr, view.ox * view.dpr, view.oy * view.dpr);
+  return sctx;
+}
+function endUi() { sctx.setTransform(1, 0, 0, 1, 0, 0); }
+
+function snapCamera(target, level) {
+  cam.tx = target.x; cam.ty = target.y;
+  cam.x = target.x; cam.y = target.y;
+  clampCam(level);
+}
+
+function clampCam(level) {
+  const halfW = view.w / 2, halfH = view.h / 2;
+  const lw = level.w * TILE, lh = level.h * TILE;
+  cam.x = lw <= view.w ? lw / 2 : clamp(cam.x, halfW, lw - halfW);
+  cam.y = lh <= view.h ? lh / 2 : clamp(cam.y, halfH, lh - halfH);
+}
+
+function updateCamera(dt, target, level, lookAhead = 0) {
+  cam.tx = target.x;
+  // ボス戦は上（地平線とボスの顔）を見せたいので、少し上に構える
+  cam.ty = target.y - (level.kind === 'arena' ? view.h * 0.22 : 6);
+  const k = 1 - Math.pow(0.0006, dt);
+  cam.x = lerp(cam.x, cam.tx, k);
+  cam.y = lerp(cam.y, cam.ty, k);
+  clampCam(level);
+  if (level.kind === 'arena') {
+    // どんなに小さい画面でも ボスの顔が切れないところで止める
+    cam.y = Math.min(cam.y, ARENA_CAM_TOP + view.h / 2);
+  }
+}
+
+/** アリーナでカメラが写す最上端（ボスの頭より少し上）*/
+const ARENA_CAM_TOP = 8;
+
+// ---------------------------------------------------------------------------
+
+function groundVariant(x, y) { return (hash2(x, y, 4711) * 4) | 0; }
+
+/** 同じ木がならばないよう、位置ハッシュで見た目を散らす */
+const VARIANTS = {
+  [O.TREE]: ['tree', 'tree2', 'tree3'],
+  [O.PINE]: ['pine', 'pine2'],
+  [O.BUSH]: ['bush', 'bush2'],
+};
+function objSprite(id, x, y) {
+  const list = VARIANTS[id];
+  if (!list) return SPR[OBJ_DEF[id].spr];
+  return SPR[list[(hash2(x, y, 1237) * list.length) | 0]];
+}
+
+let waterFrame = 0;
+function setTime(t) { waterFrame = Math.floor(t * 3.2) % 4; }
+
+/** 装飾（花・草むら）を直接描く */
+function drawDecor(ctx, id, px, py, x, y) {
+  if (id === O.FLOWER) {
+    const h = hash2(x, y, 909);
+    const col = h < 0.33 ? PAL.t : h < 0.66 ? PAL.p : PAL.C;
+    ctx.fillStyle = PAL['8'];
+    ctx.fillRect(px + 7, py + 9, 1, 4);
+    ctx.fillStyle = col;
+    ctx.fillRect(px + 6, py + 7, 3, 2);
+    ctx.fillRect(px + 7, py + 6, 1, 4);
+    if (h < 0.5) {
+      ctx.fillStyle = PAL['8']; ctx.fillRect(px + 11, py + 12, 1, 3);
+      ctx.fillStyle = col; ctx.fillRect(px + 10, py + 10, 3, 2);
+    }
+  } else if (id === O.TUFT) {
+    const h = hash2(x, y, 313);
+    ctx.fillStyle = h < 0.5 ? PAL['8'] : PAL.a;
+    for (let i = 0; i < 4; i++) {
+      const bx = px + 2 + i * 4 + ((hash2(x + i, y, 5) * 2) | 0);
+      const bh = 2 + ((hash2(x, y + i, 9) * 3) | 0);
+      ctx.fillRect(bx, py + 14 - bh, 1, bh);
+      ctx.fillRect(bx + 1, py + 15 - bh, 1, bh - 1);
+    }
+  } else if (id === O.EXIT || id === O.STAIRS) {
+    ctx.fillStyle = PAL['0']; ctx.fillRect(px + 2, py + 3, 12, 11);
+    for (let i = 0; i < 4; i++) {
+      ctx.fillStyle = i % 2 ? PAL.v : PAL.w;
+      ctx.fillRect(px + 3 + i, py + 4 + i * 2.5, 10 - i * 2, 2);
+    }
+  } else if (id === O.PILLAR) {
+    // 建物の当たり判定専用。見た目は drawBuilding が描く。
+  } else if (id === O.CAGE) {
+    ctx.fillStyle = PAL['0']; ctx.fillRect(px + 1, py + 2, 14, 13);
+    ctx.fillStyle = PAL.c; ctx.fillRect(px + 2, py + 3, 12, 11);
+    ctx.fillStyle = PAL.u;
+    for (let i = 0; i < 4; i++) ctx.fillRect(px + 3 + i * 3, py + 3, 1, 11);
+    ctx.fillRect(px + 2, py + 3, 12, 1);
+    ctx.fillRect(px + 2, py + 13, 12, 1);
+    ctx.fillStyle = PAL.s; ctx.fillRect(px + 7, py + 8, 2, 2);
+  } else if (id === O.TORCH) {
+    ctx.fillStyle = PAL.c; ctx.fillRect(px + 6, py + 7, 3, 9);
+    const f = (performance.now() / 90) | 0;
+    const w = 3 + (f % 2);
+    ctx.fillStyle = PAL.o; ctx.fillRect(px + 8 - (w >> 1), py + 2, w, 5);
+    ctx.fillStyle = PAL.s; ctx.fillRect(px + 7, py + 3, 2, 3);
+    ctx.fillStyle = PAL.t; ctx.fillRect(px + 7, py + 4, 1, 1);
+  } else if (id === O.POT) {
+    ctx.fillStyle = PAL['0']; ctx.fillRect(px + 4, py + 5, 8, 10);
+    ctx.fillStyle = PAL.e; ctx.fillRect(px + 5, py + 6, 6, 8);
+    ctx.fillStyle = PAL.f; ctx.fillRect(px + 5, py + 6, 2, 6);
+    ctx.fillStyle = PAL.d; ctx.fillRect(px + 4, py + 5, 8, 2);
+  } else if (id === O.RELIC) {
+    const t = performance.now() / 1000;
+    const bob = Math.round(Math.sin(t * 2) * 1.5) - 2;
+    // 光の輪
+    ctx.save();
+    ctx.globalAlpha = 0.16 + Math.sin(t * 3) * 0.06;
+    ctx.fillStyle = PAL.t;
+    ctx.beginPath(); ctx.arc(px + 8, py + 8 + bob, 13, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 0.30;
+    ctx.beginPath(); ctx.arc(px + 8, py + 8 + bob, 8, 0, TAU); ctx.fill();
+    ctx.restore();
+    ctx.drawImage(SPR.relic, px, py + bob);
+    // きらめき
+    ctx.fillStyle = PAL.E;
+    for (let i = 0; i < 3; i++) {
+      const a = t * 1.4 + i * TAU / 3;
+      ctx.globalAlpha = 0.5 + 0.5 * Math.sin(t * 4 + i);
+      ctx.fillRect(Math.round(px + 8 + Math.cos(a) * 11), Math.round(py + 8 + bob + Math.sin(a) * 9), 1, 1);
+    }
+    ctx.globalAlpha = 1;
+  } else if (id === O.CRACK) {
+    ctx.fillStyle = PAL.u; ctx.fillRect(px, py, TILE, TILE);
+    ctx.fillStyle = PAL['1'];
+    ctx.fillRect(px + 7, py + 1, 1, 6); ctx.fillRect(px + 6, py + 7, 1, 4);
+    ctx.fillRect(px + 8, py + 8, 1, 6); ctx.fillRect(px + 4, py + 10, 2, 1);
+  }
+}
+
+/** 建物を描く（外観のみ） */
+function drawBuilding(ctx, b, camx, camy) {
+  const px = Math.round(b.x * TILE - camx), py = Math.round(b.y * TILE - camy);
+  const w = b.w * TILE, h = b.h * TILE;
+  if (px > view.w || py > view.h || px + w < 0 || py + h < 0) return;
+  if (!b.built) {
+    // 更地：四隅の杭とロープ、そして小さな立て看板
+    const x0 = px + 2, y0 = py + 6, x1 = px + w - 3, y1 = py + h - 3;
+    ctx.globalAlpha = 0.20;
+    ctx.fillStyle = PAL.d;
+    ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = PAL.g; ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.6;
+    ctx.setLineDash([2, 3]);
+    ctx.beginPath();
+    ctx.rect(x0 + 0.5, y0 + 0.5, x1 - x0 - 1, y1 - y0 - 1);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+    for (const [sx, sy] of [[x0, y0], [x1 - 1, y0], [x0, y1 - 2], [x1 - 1, y1 - 2]]) {
+      ctx.fillStyle = PAL['0']; ctx.fillRect(sx - 1, sy - 4, 3, 6);
+      ctx.fillStyle = PAL.d; ctx.fillRect(sx, sy - 4, 1, 5);
+    }
+    // 看板
+    const sxc = px + (w >> 1) - 6, syc = y1 - 14;
+    ctx.fillStyle = PAL['0']; ctx.fillRect(sxc - 1, syc - 1, 14, 11);
+    ctx.fillStyle = PAL.e; ctx.fillRect(sxc, syc, 12, 9);
+    ctx.fillStyle = PAL.f; ctx.fillRect(sxc + 1, syc + 1, 10, 7);
+    ctx.fillStyle = PAL.c;
+    ctx.fillRect(sxc + 2, syc + 3, 8, 1);
+    ctx.fillRect(sxc + 2, syc + 5, 5, 1);
+    ctx.fillStyle = PAL.d; ctx.fillRect(px + (w >> 1) - 1, syc + 10, 2, 5);
+    return;
+  }
+  const bodyTop = py + 14;
+  const bodyH = h - 14;
+  // 壁
+  ctx.fillStyle = PAL['0'];
+  ctx.fillRect(px - 1, bodyTop - 1, w + 2, bodyH + 1);
+  ctx.fillStyle = b.id === 'sage' ? PAL['2'] : PAL.f;
+  ctx.fillRect(px, bodyTop, w, bodyH);
+  ctx.fillStyle = b.id === 'sage' ? PAL['3'] : PAL.g;
+  for (let x = 0; x < w; x += 2) ctx.fillRect(px + x, bodyTop, 1, bodyH);
+  ctx.fillStyle = b.id === 'sage' ? PAL['1'] : PAL.e;
+  ctx.fillRect(px, bodyTop + bodyH - 3, w, 3);
+  // 屋根
+  const roofC = { home: PAL.n, shop: PAL.j, smith: PAL.u, healer: PAL.a, sage: PAL.A, farm: PAL.r, well: PAL.w }[b.id] || PAL.n;
+  ctx.fillStyle = PAL['0'];
+  ctx.beginPath();
+  ctx.moveTo(px - 4, bodyTop + 1); ctx.lineTo(px + w / 2, py - 3); ctx.lineTo(px + w + 4, bodyTop + 1);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = roofC;
+  ctx.beginPath();
+  ctx.moveTo(px - 3, bodyTop); ctx.lineTo(px + w / 2, py - 1); ctx.lineTo(px + w + 3, bodyTop);
+  ctx.closePath(); ctx.fill();
+  ctx.globalAlpha = 0.35; ctx.fillStyle = PAL['0'];
+  ctx.beginPath();
+  ctx.moveTo(px + w / 2, py - 1); ctx.lineTo(px + w + 3, bodyTop); ctx.lineTo(px + w / 2, bodyTop);
+  ctx.closePath(); ctx.fill();
+  ctx.globalAlpha = 1;
+  // 扉
+  const dx = px + (w >> 1) - 4;
+  const dy = bodyTop + bodyH - 12;
+  ctx.fillStyle = PAL['0']; ctx.fillRect(dx - 1, dy - 1, 10, 13);
+  ctx.fillStyle = PAL.c; ctx.fillRect(dx, dy, 8, 12);
+  ctx.fillStyle = PAL.d; ctx.fillRect(dx + 1, dy + 1, 6, 10);
+  ctx.fillStyle = PAL.s; ctx.fillRect(dx + 6, dy + 6, 1, 2);
+  // 窓
+  if (bodyH > 18) {
+    for (const wx of [px + 3, px + w - 8]) {
+      ctx.fillStyle = PAL['0']; ctx.fillRect(wx, bodyTop + 4, 6, 6);
+      ctx.fillStyle = PAL.s; ctx.fillRect(wx + 1, bodyTop + 5, 4, 4);
+      ctx.fillStyle = PAL.q; ctx.fillRect(wx + 3, bodyTop + 5, 1, 4);
+    }
+  }
+  // 看板
+  if (b.id !== 'home') {
+    ctx.fillStyle = PAL['0']; ctx.fillRect(px + w - 6, bodyTop + bodyH - 20, 5, 7);
+    ctx.fillStyle = PAL.g; ctx.fillRect(px + w - 5, bodyTop + bodyH - 19, 3, 5);
+  }
+}
+
+// ---------------------------------------------------------------------------
+
+const drawables = [];
+
+function drawScene(g) {
+  const ctx = wctx;
+  const level = g.level;
+  const [sx, sy] = FX.shakeOffset();
+  const camx = Math.round(cam.x - view.w / 2 + sx);
+  const camy = Math.round(cam.y - view.h / 2 + sy);
+  g.camx = camx; g.camy = camy;
+
+  if (level.kind === 'arena') {
+    drawArenaBackdrop(ctx, g, camx, camy, view.w, view.h, performance.now() / 1000);
+  } else {
+    ctx.fillStyle = level.kind === 'dungeon' ? '#0d0b12' : PAL.h;
+    ctx.fillRect(0, 0, view.w, view.h);
+  }
+
+  const x0 = Math.max(0, Math.floor(camx / TILE));
+  const y0 = Math.max(0, Math.floor(camy / TILE));
+  const x1 = Math.min(level.w - 1, Math.ceil((camx + view.w) / TILE));
+  const y1 = Math.min(level.h - 1, Math.ceil((camy + view.h) / TILE));
+
+  // --- 地面 ---
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      const t = level.ground[y * level.w + x];
+      if (t === T.VOID) continue;                  // 「向こう側」は背景がそのまま見える
+      const name = TERRAIN_NAME[t];
+      const px = x * TILE - camx, py = y * TILE - camy;
+      const set = TERRAIN_TILES[name];
+      const v = (t === T.WATER || t === T.DEEP) ? waterFrame : groundVariant(x, y);
+      ctx.drawImage(set[v], px, py);
+    }
+  }
+  // --- 地面のディザ境界 ---
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      const t = level.ground[y * level.w + x];
+      if (t === T.VOID) continue;
+      const prio = TERRAIN_PRIO[t];
+      const px = x * TILE - camx, py = y * TILE - camy;
+      const nb = [[0, -1, 0], [0, 1, 1], [-1, 0, 2], [1, 0, 3]];
+      for (const [ox, oy, dir] of nb) {
+        const nx = x + ox, ny = y + oy;
+        if (!level.inb(nx, ny)) continue;
+        const nt = level.ground[ny * level.w + nx];
+        if (nt === t) continue;
+        if (TERRAIN_PRIO[nt] <= prio) continue;
+        const e = EDGE[TERRAIN_NAME[nt]];
+        if (e) ctx.drawImage(e[dir], px, py);
+      }
+    }
+  }
+
+  // --- ボスの頭・腕（地面より上、キャラより下）---
+  if (g.boss) g.boss.drawBack(ctx, camx, camy);
+
+  // --- 危険の予告（地面のしるし）---
+  ctx.save();
+  ctx.translate(-camx, -camy);
+  drawHazardsUnder(ctx, g);
+  ctx.restore();
+
+  // --- 低いオブジェクト・装飾 ---
+  drawables.length = 0;
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      const id = level.obj[y * level.w + x];
+      if (!id) continue;
+      const def = OBJ_DEF[id];
+      const px = x * TILE - camx, py = y * TILE - camy;
+      if (!def) continue;
+      if (def.tall) { drawables.push({ sortY: y * TILE + TILE, kind: 'obj', id, px, py, x, y }); continue; }
+      if (def.spr) ctx.drawImage(objSprite(id, x, y), px, py);
+      else drawDecor(ctx, id, px, py, x, y);
+    }
+  }
+
+  // --- 奥行きソートして描画（建物・高い物・エンティティをまとめて）---
+  for (const b of level.buildings) {
+    if (b.x * TILE > camx + view.w || (b.x + b.w) * TILE < camx) continue;
+    if (b.y * TILE > camy + view.h + 40 || (b.y + b.h) * TILE < camy - 40) continue;
+    drawables.push({ sortY: (b.y + b.h) * TILE - 2, kind: 'bld', b });
+  }
+
+  ctx.save();
+  ctx.translate(-camx, -camy);
+  for (const e of g.drawList()) {
+    if (e.x < camx - 40 || e.x > camx + view.w + 40 || e.y < camy - 60 || e.y > camy + view.h + 60) continue;
+    drawables.push({ sortY: e.y, kind: 'ent', e });
+  }
+  drawables.sort((a, b) => a.sortY - b.sortY);
+  for (const d of drawables) {
+    if (d.kind === 'ent') { d.e.draw(ctx); continue; }
+    if (d.kind === 'bld') {
+      ctx.restore(); drawBuilding(ctx, d.b, camx, camy); ctx.save(); ctx.translate(-camx, -camy);
+      continue;
+    }
+    const def = OBJ_DEF[d.id];
+    if (def.spr) ctx.drawImage(objSprite(d.id, d.x, d.y), d.px + camx, d.py + camy);
+    else { ctx.restore(); drawDecor(ctx, d.id, d.px, d.py, d.x, d.y); ctx.save(); ctx.translate(-camx, -camy); }
+  }
+  FX.drawParticles(ctx);
+  drawHazardsOver(ctx, g);
+  if (g.boss) g.boss.drawWarn(ctx, 0, 0);
+  ctx.restore();
+
+  // --- 木もれ日（屋外だけ）---
+  if (level.kind === 'field') drawSunShafts(ctx, camx, camy);
+
+  // --- かぶりつきの寄り絵 ---
+  if (g.boss) g.boss.drawLungeOverlay(ctx, camx, camy, view.w, view.h);
+
+  // --- 明かり（ダンジョン）---
+  if (level.dark) drawLight(g, camx, camy);
+
+  // --- 画面フラッシュ ---
+  if (FX.fx.flash > 0.01) {
+    ctx.globalAlpha = clamp(FX.fx.flash, 0, 1);
+    ctx.fillStyle = FX.fx.flashColor;
+    ctx.fillRect(0, 0, view.w, view.h);
+    ctx.globalAlpha = 1;
+  }
+
+  // --- 文字の浮き上がり ---
+  ctx.save();
+  ctx.translate(-camx, -camy);
+  ctx.font = 'bold 8px ui-monospace, monospace';
+  ctx.textAlign = 'center';
+  for (const t of FX.fx.texts) {
+    const a = clamp(t.life / t.max, 0, 1);
+    ctx.globalAlpha = a > 0.5 ? 1 : a * 2;
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#000';
+    ctx.font = `bold ${t.size}px ui-monospace, monospace`;
+    ctx.strokeText(t.text, Math.round(t.x), Math.round(t.y));
+    ctx.fillStyle = t.color;
+    ctx.fillText(t.text, Math.round(t.x), Math.round(t.y));
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+/** ななめに差しこむ光。うっすらで十分。 */
+function drawSunShafts(ctx, camx, camy) {
+  const t = performance.now() / 1000;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = 0.045;
+  ctx.fillStyle = '#fff6d8';
+  const drift = (t * 3) % 90;
+  for (let i = -2; i < 8; i++) {
+    const x = i * 90 + drift - (camx * 0.12) % 90;
+    ctx.beginPath();
+    ctx.moveTo(x, -10);
+    ctx.lineTo(x + 26, -10);
+    ctx.lineTo(x - 40, view.h + 10);
+    ctx.lineTo(x - 66, view.h + 10);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawLight(g, camx, camy) {
+  const level = g.level;
+  lctx.globalCompositeOperation = 'source-over';
+  lctx.fillStyle = 'rgba(6,4,10,0.90)';
+  lctx.fillRect(0, 0, view.w, view.h);
+  lctx.globalCompositeOperation = 'destination-out';
+
+  const addLight = (x, y, r, strength = 1) => {
+    if (x < -r || y < -r || x > view.w + r || y > view.h + r) return;
+    const grd = lctx.createRadialGradient(x, y, 0, x, y, r);
+    grd.addColorStop(0, `rgba(0,0,0,${strength})`);
+    grd.addColorStop(0.55, `rgba(0,0,0,${strength * 0.72})`);
+    grd.addColorStop(1, 'rgba(0,0,0,0)');
+    lctx.fillStyle = grd;
+    lctx.fillRect(x - r, y - r, r * 2, r * 2);
+  };
+
+  const flicker = 1 + Math.sin(performance.now() / 130) * 0.04;
+  addLight(g.player.x - camx, g.player.y - camy - 6, 74 * flicker, 1);
+
+  const x0 = Math.max(0, Math.floor(camx / TILE)), y0 = Math.max(0, Math.floor(camy / TILE));
+  const x1 = Math.min(level.w - 1, Math.ceil((camx + view.w) / TILE));
+  const y1 = Math.min(level.h - 1, Math.ceil((camy + view.h) / TILE));
+  for (let y = y0; y <= y1; y++)
+    for (let x = x0; x <= x1; x++)
+      {
+        const ob = level.obj[y * level.w + x];
+        if (ob === O.TORCH)
+          addLight(x * TILE + 8 - camx, y * TILE + 5 - camy, 42 * (1 + Math.sin(performance.now() / 90 + x) * 0.07), 0.95);
+        else if (ob === O.RELIC)
+          addLight(x * TILE + 8 - camx, y * TILE + 6 - camy, 56 * (1 + Math.sin(performance.now() / 260) * 0.10), 1);
+        else if (ob === O.CHEST)
+          addLight(x * TILE + 8 - camx, y * TILE + 8 - camy, 15, 0.42);
+      }
+  for (const b of g.bombs) addLight(b.x - camx, b.y - camy - 4, 22, 0.7);
+  for (const e of g.enemies) if (e.boss && !e.dead) addLight(e.x - camx, e.y - camy - 10, 40, 0.6);
+
+  lctx.globalCompositeOperation = 'source-over';
+  wctx.drawImage(light, 0, 0);
+}
+
+/** 論理画面を実画面へ拡大転送 */
+function present() {
+  sctx.setTransform(1, 0, 0, 1, 0, 0);
+  sctx.fillStyle = '#08070c';
+  sctx.fillRect(0, 0, screen.width, screen.height);
+  const d = view.dpr;
+  sctx.imageSmoothingEnabled = false;
+  sctx.drawImage(world, 0, 0, view.w, view.h,
+    Math.round(view.ox * d), Math.round(view.oy * d),
+    Math.round(view.cssW * d), Math.round(view.cssH * d));
+}
+
+return { view, cam, initRender, getCtx, resize, toScreen, toWorldPx, beginUi, endUi, snapCamera, updateCamera, setTime, drawScene, present };
+})();
+
+const __M_input = (function () {
+const { clamp } = __M_util;
+const { view } = __M_render;
+// ---------------------------------------------------------------------------
+// input.js — 片手操作用の入力（フローティング仮想スティック＋ボタン＋キーボード）
+// ---------------------------------------------------------------------------
+
+const STICK_MAX = 34;        // CSS px。ここまで倒すと最大速度
+const STICK_DEAD = 5;
+const CHARGE_HOLD = 0.42;    // その場でこれ以上押し続けたら「ため」
+const SWIPE_DIST = 42;       // この距離を
+const SWIPE_TIME = 0.13;     // この時間内に動かしたら「はらい」＝ローリング
+const SWIPE_COOL = 0.34;
+let gestureTap = false, gestureCharge = false;
+let swipeVec = null, swipeCool = 0;
+
+const input = {
+  // 移動ベクトル (-1..1)
+  mx: 0, my: 0, mlen: 0,
+  // ボタン状態
+  a: false, aPressed: false, aReleased: false, aHold: 0,
+  b: false, bPressed: false,
+  menuPressed: false, mapPressed: false,
+  // その他
+  anyPressed: false,
+  taps: [],                  // {x,y} 画面座標（CSS px）
+  stick: { active: false, ox: 0, oy: 0, x: 0, y: 0, id: -1 },
+  // 片手ジェスチャ：その場で押す＝攻撃／長押し＝ためる／ドラッグ＝移動
+  gHeld: 0,          // 押している時間（動かしていないあいだだけ伸びる）
+  gStill: false,     // いま「その場押し」状態か
+  gTap: false,       // この 1 フレームで軽いタップとして離された
+  gCharge: false,    // この 1 フレームで「ためた状態」から離された
+  swipeX: 0, swipeY: 0, swiped: false,   // すばやく払った＝回避
+  buttons: [],               // {id, x, y, r}（毎フレーム UI が登録）
+  pressedIds: new Set(),     // このフレームに押されたボタン ID
+  usingTouch: false,
+  stickEnabled: true,   // メニュー表示中は false にしてタップ扱いにする
+};
+
+const keys = new Set();
+const pointers = new Map(); // id -> {role, btn, sx, sy, x, y}
+let canvasEl = null;
+let prevA = false, prevB = false;
+let touchA = false, touchB = false;   // タッチ由来の押下（キーボードと混ざらないよう分離）
+const pressedThisFrame = new Set();
+
+function setButtons(list) { input.buttons = list; }
+
+function hitButton(x, y) {
+  // 後ろに登録されたものを優先（手前に描かれる想定）
+  for (let i = input.buttons.length - 1; i >= 0; i--) {
+    const b = input.buttons[i];
+    const dx = x - b.x, dy = y - b.y;
+    if (b.r != null) { if (dx * dx + dy * dy <= b.r * b.r) return b; }
+    else if (Math.abs(dx) <= b.hw && Math.abs(dy) <= b.hh) return b;
+  }
+  return null;
+}
+
+function localPos(e) {
+  const r = canvasEl.getBoundingClientRect();
+  // 座標系は「ゲーム領域の左上が原点」に揃える（横長画面の黒帯ぶんを引く）
+  return { x: e.clientX - r.left - view.ox, y: e.clientY - r.top - view.oy };
+}
+
+function onDown(e) {
+  if (e.pointerType === 'touch') input.usingTouch = true;
+  const p = localPos(e);
+  const btn = hitButton(p.x, p.y);
+  if (btn) {
+    pointers.set(e.pointerId, { role: 'btn', btn: btn.id, ...p });
+    pressedThisFrame.add(btn.id);
+    if (btn.id === 'a') touchA = true;
+    if (btn.id === 'b') touchB = true;
+    input.anyPressed = true;
+    return;
+  }
+  // スティックは画面下 2/3 のどこからでも出せる
+  if (input.stickEnabled && !input.stick.active && p.y > view.cssH * 0.34) {
+    input.stick.active = true;
+    input.stick.id = e.pointerId;
+    input.stick.ox = p.x; input.stick.oy = p.y;
+    input.stick.x = p.x; input.stick.y = p.y;
+    input.gHeld = 0; input.gStill = true;
+    pointers.set(e.pointerId, { role: 'stick', sx: p.x, sy: p.y, t0: performance.now(), far: 0, hist: [{ x: p.x, y: p.y, t: performance.now() / 1000 }], ...p });
+    input.anyPressed = true;
+    return;
+  }
+  pointers.set(e.pointerId, { role: 'tap', sx: p.x, sy: p.y, ...p });
+  input.anyPressed = true;
+}
+
+function onMove(e) {
+  const rec = pointers.get(e.pointerId);
+  if (!rec) return;
+  const p = localPos(e);
+  rec.x = p.x; rec.y = p.y;
+  if (rec.role === 'stick') {
+    input.stick.x = p.x; input.stick.y = p.y;
+    rec.far = Math.max(rec.far || 0, Math.hypot(p.x - rec.sx, p.y - rec.sy));
+    // すばやい払いを拾う（ふつうの操作より明らかに速い動きだけ）
+    const now = performance.now() / 1000;
+    rec.hist.push({ x: p.x, y: p.y, t: now });
+    while (rec.hist.length > 2 && now - rec.hist[0].t > SWIPE_TIME) rec.hist.shift();
+    if (swipeCool <= 0 && rec.hist.length > 1) {
+      const a = rec.hist[0];
+      const dx = p.x - a.x, dy = p.y - a.y;
+      const d = Math.hypot(dx, dy);
+      const dt = Math.max(0.016, now - a.t);
+      if (d > SWIPE_DIST && d / dt > 330) {
+        swipeVec = { x: dx / d, y: dy / d };
+        swipeCool = SWIPE_COOL;
+        rec.hist.length = 0;
+        rec.hist.push({ x: p.x, y: p.y, t: now });
+      }
+    }
+    let dx = p.x - input.stick.ox, dy = p.y - input.stick.oy;
+    const len = Math.hypot(dx, dy);
+    // 大きく倒したら原点を引きずる（指がずれても操作を続けられる）
+    if (len > STICK_MAX) {
+      input.stick.ox += dx * (1 - STICK_MAX / len);
+      input.stick.oy += dy * (1 - STICK_MAX / len);
+      dx = p.x - input.stick.ox; dy = p.y - input.stick.oy;
+    }
+  }
+}
+
+function onUp(e) {
+  const rec = pointers.get(e.pointerId);
+  pointers.delete(e.pointerId);
+  if (!rec) return;
+  if (rec.role === 'stick') {
+    input.stick.active = false;
+    input.stick.id = -1;
+    const held = (performance.now() - (rec.t0 || 0)) / 1000;
+    if ((rec.far || 0) < 14) {
+      if (input.gHeld >= CHARGE_HOLD) gestureCharge = true;
+      else if (held < 0.45) gestureTap = true;
+    }
+    input.gHeld = 0; input.gStill = false;
+  } else if (rec.role === 'btn') {
+    // 同じボタンを押している別の指がなければ離す
+    let still = false;
+    for (const r of pointers.values()) if (r.role === 'btn' && r.btn === rec.btn) still = true;
+    if (!still) {
+      if (rec.btn === 'a') touchA = false;
+      if (rec.btn === 'b') touchB = false;
+    }
+  } else if (rec.role === 'tap') {
+    const moved = Math.hypot(rec.x - rec.sx, rec.y - rec.sy);
+    if (moved < 18) input.taps.push({ x: rec.x, y: rec.y });
+  }
+}
+
+const KEY_A = new Set(['Space', 'KeyJ', 'KeyZ', 'Enter']);
+const KEY_B = new Set(['KeyK', 'KeyX']);
+const KEY_ROLL = new Set(['ShiftLeft', 'ShiftRight', 'KeyC', 'KeyL']);
+const KEY_MENU = new Set(['Escape', 'KeyP']);
+const KEY_MAP = new Set(['KeyM', 'Tab']);
+
+function initInput(canvas) {
+  canvasEl = canvas;
+  const opt = { passive: false };
+  canvas.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    canvas.setPointerCapture?.(e.pointerId);
+    onDown(e);
+  }, opt);
+  canvas.addEventListener('pointermove', (e) => { e.preventDefault(); onMove(e); }, opt);
+  canvas.addEventListener('pointerup', (e) => { e.preventDefault(); onUp(e); }, opt);
+  canvas.addEventListener('pointercancel', (e) => { onUp(e); }, opt);
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+  window.addEventListener('blur', () => {
+    pointers.clear(); keys.clear();
+    touchA = touchB = false;
+    input.a = input.b = false; input.stick.active = false;
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (e.repeat) return;
+    keys.add(e.code);
+    if (KEY_A.has(e.code) || KEY_B.has(e.code) || KEY_MENU.has(e.code) || KEY_MAP.has(e.code)
+        || e.code.startsWith('Arrow') || e.code === 'Space' || e.code === 'Tab') e.preventDefault();
+    if (KEY_MENU.has(e.code)) pressedThisFrame.add('menu');
+    if (KEY_MAP.has(e.code)) pressedThisFrame.add('map');
+    if (KEY_ROLL.has(e.code)) pressedThisFrame.add('roll');
+    input.anyPressed = true;
+  });
+  window.addEventListener('keyup', (e) => keys.delete(e.code));
+}
+
+/** 毎フレーム先頭で呼ぶ */
+function updateInput(dt) {
+  // --- 移動 ---
+  let mx = 0, my = 0;
+  if (keys.has('KeyA') || keys.has('ArrowLeft')) mx -= 1;
+  if (keys.has('KeyD') || keys.has('ArrowRight')) mx += 1;
+  if (keys.has('KeyW') || keys.has('ArrowUp')) my -= 1;
+  if (keys.has('KeyS') || keys.has('ArrowDown')) my += 1;
+  let len = Math.hypot(mx, my);
+  if (len > 0) { mx /= len; my /= len; len = 1; }
+
+  if (input.stick.active) {
+    const dx = input.stick.x - input.stick.ox;
+    const dy = input.stick.y - input.stick.oy;
+    const d = Math.hypot(dx, dy);
+    if (d > STICK_DEAD) {
+      const t = clamp((d - STICK_DEAD) / (STICK_MAX - STICK_DEAD), 0, 1);
+      mx = (dx / d) * t; my = (dy / d) * t;
+      len = t;
+    } else { mx = 0; my = 0; len = 0; }
+  }
+  input.mx = mx; input.my = my; input.mlen = len;
+
+  // 片手ジェスチャの状態更新
+  if (input.stick.active) {
+    const rec = pointers.get(input.stick.id);
+    const far = rec ? (rec.far || 0) : 99;
+    if (far < 14 && len < 0.18) { input.gHeld += dt; input.gStill = true; }
+    else { input.gHeld = 0; input.gStill = false; }
+  }
+  input.gTap = gestureTap; gestureTap = false;
+  input.gCharge = gestureCharge; gestureCharge = false;
+
+  // 回避の入力（払い または キー）
+  swipeCool = Math.max(0, swipeCool - dt);
+  if (swipeVec) {
+    input.swiped = true; input.swipeX = swipeVec.x; input.swipeY = swipeVec.y;
+    swipeVec = null;
+  } else if (pressedThisFrame.has('roll') || pressedThisFrame.has('roll-btn')) {
+    input.swiped = true;
+    const l = Math.hypot(mx, my);
+    input.swipeX = l > 0.1 ? mx / l : 0;
+    input.swipeY = l > 0.1 ? my / l : 1;
+  } else {
+    input.swiped = false;
+  }
+
+  // --- ボタン ---
+  let keyA = false, keyB = false;
+  for (const k of keys) { if (KEY_A.has(k)) keyA = true; if (KEY_B.has(k)) keyB = true; }
+  // 1 フレームより短いタップも取りこぼさないよう、押下は必ず 1 度は拾う
+  const aNow = touchA || keyA || pressedThisFrame.has('a');
+  const bNow = touchB || keyB || pressedThisFrame.has('b');
+  input.aPressed = aNow && !prevA;
+  input.aReleased = !aNow && prevA;
+  input.bPressed = bNow && !prevB;
+  input.aHold = aNow ? input.aHold + dt : 0;
+  prevA = aNow; prevB = bNow;
+  input.a = aNow; input.b = bNow;
+
+  input.menuPressed = pressedThisFrame.has('menu');
+  input.mapPressed = pressedThisFrame.has('map');
+  input.pressedIds = pressedThisFrame;
+}
+
+/** 毎フレーム末尾で呼ぶ */
+function endInputFrame() {
+  input.taps.length = 0;
+  input.anyPressed = false;
+  pressedThisFrame.clear();
+}
+
+/** メニュー等で入力状態をリセット */
+function resetInput() {
+  input.aPressed = input.bPressed = input.aReleased = false;
+  input.aHold = 0;
+  input.taps.length = 0;
+}
+
+/** ボタンの押しっぱなしを打ち切る（画面遷移時など） */
+function clearHeld() {
+  touchA = touchB = false;
+  gestureTap = gestureCharge = false;
+  swipeVec = null;
+  input.gTap = input.gCharge = false;
+  input.swiped = false;
+  input.gHeld = 0; input.gStill = false;
+  prevA = prevB = true;   // 次フレームで pressed が立たないように
+  input.a = input.b = false;
+  input.aHold = 0;
+}
+
+
+return { input, setButtons, initInput, updateInput, endInputFrame, resetInput, clearHeld };
+})();
+
+const __M_boss = (function () {
+const { TILE } = __M_config;
+const { clamp, lerp, dist, makeRng, TAU, easeOutCubic, easeInCubic } = __M_util;
+const { Entity } = __M_entities;
+const FX = __M_fx;
+const { say } = __M_bubble;
+const { sfx, duckMusic } = __M_audio;
+const { HORIZON_Y } = __M_arena;
+// ---------------------------------------------------------------------------
+// boss.js — 地平線からのぞきこむ巨大なボス
+//   頭と腕は背景側、地面に降りてきた「手」だけが実体として殴れる。
+//   低解像度キャンバスに直接パスを描くので、拡大すると自然にドット絵になる。
+// ---------------------------------------------------------------------------
+
+const rng = makeRng(0x5A11);
+
+// --- ボスごとの見た目と性格 --------------------------------------------------
+const BOSS_DEF = {
+  grinner: {
+    name: '沼のわらい主',
+    hp: 52,
+    skin: '#b0b083', skinDark: '#8a8a63', skinLite: '#c9c99a',
+    body: '#241f2b', arm: '#2d2635',
+    headW: 34, headH: 24,
+    taunts: ['「教育」だ。', 'まだ 帰れると 思ってるの？', 'いい子だ。うごくな。', 'ぼくの 手は やさしいよ。'],
+    intro: ['ようこそ、ぬかるみへ。', 'ここでは みんな しずかになる。'],
+    death: ['……あぁ、しずかだ。'],
+  },
+  hollow: {
+    name: 'うつろの見張り',
+    hp: 78,
+    skin: '#a8a2b6', skinDark: '#7d788c', skinLite: '#c6c1d4',
+    body: '#1d1a26', arm: '#282235',
+    headW: 36, headH: 26,
+    taunts: ['数えていたよ。きみの歩数を。', 'まばたきを おしまい。', 'ここは まだ 途中だ。', 'かえりみち？ とじたよ。'],
+    intro: ['ずっと 見ていた。', 'きみが ここへ 来るまでの ぜんぶを。'],
+    death: ['……やっと、目を つむれる。'],
+  },
+  ashking: {
+    name: '灰かぶりの王',
+    hp: 104,
+    skin: '#c0a483', skinDark: '#96795c', skinLite: '#dcc4a6',
+    body: '#26191c', arm: '#33222a',
+    headW: 38, headH: 28,
+    taunts: ['灰は 平等だ。', 'きみの村も、いずれ ここへ。', 'もう すこし わらって。', '夜明けなど こない。'],
+    intro: ['よく来た、ちいさな灯り。', 'ここで 消えて おゆき。'],
+    death: ['……あかるい。ひさしぶりに、あかるい。'],
+  },
+};
+
+// ---------------------------------------------------------------------------
+// 地面に降りてくる手（これだけが殴れる）
+// ---------------------------------------------------------------------------
+class BossHand extends Entity {
+  constructor(boss, side, tx, ty) {
+    super(tx, ty);
+    this.boss = boss;
+    this.side = side;                 // -1 左 / +1 右
+    this.hw = 21; this.hh = 9;
+    this.shadow = 0;
+    this.hp = 9999; this.maxHp = 9999;
+    this.isPart = true;
+    this.state = 'raise';             // raise → slam → planted → retract
+    this.t = 0;
+    this.z = 90;
+    this.flash = 0;
+    this.slamAt = 0.85;               // 影がふくらむ時間
+    this.plantFor = 2.6;
+  }
+
+  hurt(g, amount, fx, fy) {
+    if (this.state !== 'planted') return;
+    this.flash = 0.12;
+    this.boss.takeDamage(g, amount, this);
+    FX.burst(this.x, this.y - 6, 7, ['#ffffff', this.boss.def.skinLite, '#e8c46a'], { spMax: 90 });
+  }
+
+  update(dt, g) {
+    this.t += dt;
+    this.flash = Math.max(0, this.flash - dt);
+    const p = g.player;
+
+    if (this.state === 'raise') {
+      const k = clamp(this.t / this.slamAt, 0, 1);
+      this.z = lerp(90, 34, easeInCubic(k));
+      if (this.t >= this.slamAt) { this.state = 'slam'; this.t = 0; }
+    } else if (this.state === 'slam') {
+      const k = clamp(this.t / 0.13, 0, 1);
+      this.z = lerp(34, 0, k);
+      if (k >= 1) {
+        this.state = 'planted'; this.t = 0; this.z = 0;
+        sfx('hitHard'); FX.shake(7, 0.45); FX.hitstop(0.05);
+        FX.burst(this.x, this.y, 20, ['#3e6b52', '#2b4f42', '#7fb8d4'], { spMax: 130, life: 0.6 });
+        FX.ring(this.x, this.y, { r0: 6, r1: 46, life: 0.4, color: '#cfe6d8', width: 2 });
+        if (dist(p.x, p.y, this.x, this.y) < 30) p.hurt(g, 2, this.x, this.y);
+      }
+    } else if (this.state === 'planted') {
+      if (this.t > this.plantFor) { this.state = 'retract'; this.t = 0; }
+      // 触れているとじわじわ痛い
+      if (Math.abs(p.x - this.x) < this.hw + p.hw && Math.abs(p.y - this.y) < this.hh + p.hh + 3) {
+        p.hurt(g, 1, this.x, this.y);
+      }
+    } else if (this.state === 'retract') {
+      this.z = lerp(0, 110, easeInCubic(clamp(this.t / 0.5, 0, 1)));
+      if (this.t > 0.5) this.dead = true;
+    }
+  }
+
+  draw(ctx) {
+    // 落ちてくる先の影
+    if (this.state === 'raise' || this.state === 'slam') {
+      const k = this.state === 'raise' ? clamp(this.t / this.slamAt, 0, 1) : 1;
+      ctx.globalAlpha = 0.25 + 0.4 * k;
+      ctx.fillStyle = '#000000';
+      ctx.beginPath();
+      ctx.ellipse(Math.round(this.x), Math.round(this.y), 20 * (0.4 + 0.6 * k), 9 * (0.4 + 0.6 * k), 0, 0, TAU);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      if (this.state === 'raise') {
+        ctx.strokeStyle = k > 0.75 && Math.floor(this.t * 16) % 2 === 0 ? '#ff8f6b' : '#d65c4e';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.ellipse(Math.round(this.x), Math.round(this.y), 20, 9, 0, 0, TAU);
+        ctx.stroke();
+      }
+    }
+    drawHand(ctx, this.boss.def, this.x, this.y - this.z, this.side, this.flash > 0);
+  }
+}
+
+/** 手そのもの（指 4 本のぶ厚い手のひら） */
+function drawHand(ctx, def, x, y, side, flash) {
+  const c = flash ? '#ffffff' : def.skin;
+  const cd = flash ? '#dddddd' : def.skinDark;
+  const cl = flash ? '#ffffff' : def.skinLite;
+  x = Math.round(x); y = Math.round(y);
+  // 指 4 本。長さをばらして ひらいた手に見せる
+  const FING = [12, 16, 15, 11];
+  for (let i = 0; i < 4; i++) {
+    const fx = x - 22 + i * 11 + (i - 1.5) * 1.2;
+    ctx.fillStyle = '#12100f';
+    rounded(ctx, fx - 1, y - 6, 13, FING[i] + 2, 6); ctx.fill();
+  }
+  for (let i = 0; i < 4; i++) {
+    const fx = x - 22 + i * 11 + (i - 1.5) * 1.2;
+    ctx.fillStyle = c;
+    rounded(ctx, fx, y - 5, 11, FING[i], 5); ctx.fill();
+    ctx.fillStyle = cl;
+    rounded(ctx, fx + 1, y - 4, 9, 5, 2); ctx.fill();
+  }
+  // 手のひら（指のつけ根をつなぐ）
+  ctx.fillStyle = '#12100f';
+  rounded(ctx, x - 23, y - 14, 46, 13, 6); ctx.fill();
+  ctx.fillStyle = c;
+  rounded(ctx, x - 22, y - 13, 44, 11, 5); ctx.fill();
+  ctx.fillStyle = cd;
+  for (let i = 0; i < 3; i++) ctx.fillRect(x - 10 + i * 11, y - 4, 1, 9);
+}
+
+function rounded(ctx, x, y, w, h, r) {
+  const rr = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rr);
+  ctx.arcTo(x + w, y + h, x, y + h, rr);
+  ctx.arcTo(x, y + h, x, y, rr);
+  ctx.arcTo(x, y, x + w, y, rr);
+  ctx.closePath();
+}
+
+// ---------------------------------------------------------------------------
+// 本体
+// ---------------------------------------------------------------------------
+class GiantBoss {
+  constructor(g, kind, level = 1) {
+    this.kind = kind;
+    this.def = BOSS_DEF[kind] || BOSS_DEF.grinner;
+    this.name = this.def.name;
+    this.maxHp = Math.round(this.def.hp * (1 + 0.15 * (level - 1)));
+    this.hp = this.maxHp;
+    this.level = level;
+
+    this.cx = (g.level.w * TILE) / 2;
+    this.headY = HORIZON_Y - 30;
+    this.headX = this.cx;
+    this.baseHeadY = this.headY;
+
+    this.hands = [];
+    this.state = 'intro';
+    this.t = 0;
+    this.cd = 2.2;
+    this.phase = 1;
+    this.dead = false;
+    this.deadT = 0;
+    this.blink = 0;
+    this.mouth = 0.35;               // 口の開き
+    this.flash = 0;
+    this.introStep = 0;
+    this.tauntCd = 5;
+
+    // 突進（かぶりつき）用
+    this.lunge = null;
+
+    // 吹き出しの吸着点
+    this.anchor = { x: this.cx, y: HORIZON_Y - 52, z: 0, dead: false };
+  }
+
+  get alive() { return this.hp > 0; }
+
+  takeDamage(g, amount, from) {
+    if (this.hp <= 0) return;
+    this.hp -= amount;
+    this.flash = 0.1;
+    this.mouth = Math.min(1, this.mouth + 0.35);
+    sfx('hitHard');
+    FX.floatText(from.x, from.y - 14, String(amount), '#ffe9a8', { size: 8 });
+    const before = this.phase;
+    this.phase = this.hp / this.maxHp > 0.62 ? 1 : this.hp / this.maxHp > 0.3 ? 2 : 3;
+    if (this.phase !== before) this.onPhase(g);
+    if (this.hp <= 0) this.die(g);
+  }
+
+  onPhase(g) {
+    sfx('boss');
+    duckMusic(0.06, 1.4);
+    FX.flash('#e0d0ff', 0.35);
+    FX.shake(6, 0.5);
+    say({ target: this.anchor, text: this.phase === 2 ? 'まだ たっているのか。' : 'ゆるさない。', tone: 'boss', life: 2.2 });
+    // 手をいったん引っこめる
+    for (const h of this.hands) if (h.state === 'planted') { h.state = 'retract'; h.t = 0; }
+  }
+
+  die(g) {
+    this.hp = 0;
+    this.state = 'dying';
+    this.t = 0;
+    sfx('bomb');
+    FX.shake(10, 1.2); FX.flash('#ffffff', 0.7);
+    say({ target: this.anchor, text: this.def.death[0], tone: 'boss', life: 3.4 });
+    for (const h of this.hands) h.dead = true;
+    this.hands.length = 0;
+    g.onGiantBossDefeated?.(this);
+  }
+
+  // --- 進行 ---
+  update(dt, g) {
+    this.t += dt;
+    this.flash = Math.max(0, this.flash - dt);
+    this.blink = Math.max(0, this.blink - dt);
+    if (this.blink <= 0 && rng() < dt * 0.35) this.blink = 0.14;
+    this.mouth = lerp(this.mouth, this.state === 'lunge' ? 1 : 0.35, 1 - Math.pow(0.02, dt));
+    this.headX = this.cx + Math.sin(this.t * 0.7) * 5;
+    this.headY = this.baseHeadY + Math.sin(this.t * 0.9) * 2;
+
+    // 生きている手だけ残す
+    this.hands = this.hands.filter(h => !h.dead);
+
+    if (this.state === 'dying') {
+      this.deadT += dt;
+      this.headY = this.baseHeadY + easeInCubic(clamp(this.deadT / 3, 0, 1)) * 70;
+      if (rng() < dt * 14) {
+        FX.burst(this.headX + rng.range(-20, 20), this.headY + rng.range(-10, 10), 3,
+          ['#ffffff', this.def.skinLite, '#e8c46a']);
+      }
+      return;
+    }
+
+    if (this.state === 'intro') {
+      if (this.t > 1.1 && this.introStep === 0) {
+        this.introStep = 1;
+        say({ target: this.anchor, text: this.def.intro[0], tone: 'boss', life: 2.4 });
+      } else if (this.t > 3.4 && this.introStep === 1) {
+        this.introStep = 2;
+        say({ target: this.anchor, text: this.def.intro[1], tone: 'boss', life: 2.4 });
+      } else if (this.t > 5.8) {
+        this.state = 'idle'; this.t = 0; this.cd = 0.6;
+      }
+      return;
+    }
+
+    if (this.state === 'lunge') { this.updateLunge(dt, g); return; }
+
+    // ときどき挑発
+    this.tauntCd -= dt;
+    if (this.tauntCd <= 0) {
+      this.tauntCd = rng.range(7, 12);
+      say({ target: this.anchor, text: rng.pick(this.def.taunts), tone: 'boss', life: 2.4 });
+    }
+
+    this.cd -= dt;
+    if (this.cd > 0) return;
+    this.pickMove(g);
+  }
+
+  pickMove(g) {
+    const p = g.player;
+    const pool = ['slam', 'slam', 'spit'];
+    if (this.phase >= 2) pool.push('daggers', 'sweep', 'slam');
+    if (this.phase >= 3) pool.push('lunge', 'daggers', 'sweep');
+    const move = rng.pick(pool);
+    const gap = this.phase === 1 ? rng.range(2.0, 2.8) : this.phase === 2 ? rng.range(1.5, 2.2) : rng.range(1.1, 1.7);
+
+    if (move === 'slam') {
+      const n = this.phase >= 3 ? 2 : 1;
+      for (let i = 0; i < n; i++) {
+        const side = i === 0 ? (p.x < this.cx ? -1 : 1) : (p.x < this.cx ? 1 : -1);
+        const tx = clamp(p.x + rng.range(-16, 16) + (i ? rng.range(-40, 40) : 0), 40, g.level.w * TILE - 40);
+        const ty = clamp(p.y + rng.range(-10, 10), HORIZON_Y + 30, g.level.h * TILE - 30);
+        const h = new BossHand(this, side, tx, ty);
+        h.slamAt = this.phase >= 3 ? 0.6 : 0.85;
+        h.plantFor = this.phase >= 3 ? 2.0 : 2.6;
+        this.hands.push(h);
+        g.enemies.push(h);
+      }
+      sfx('swingBig');
+      this.cd = gap + 2.2;
+    } else if (move === 'spit') {
+      this.mouth = 1;
+      const n = 3 + this.phase;
+      const base = Math.atan2(p.y - (this.headY + 14), p.x - this.headX);
+      for (let i = 0; i < n; i++) {
+        const a = base + (i - (n - 1) / 2) * 0.16;
+        g.spawnProjectile(this.headX, this.headY + 16, a, 66 + this.phase * 8, 2, 'spore');
+      }
+      sfx('shoot');
+      this.cd = gap;
+    } else if (move === 'daggers') {
+      this.startDaggers(g);
+      this.cd = gap + 1.2;
+    } else if (move === 'sweep') {
+      this.startSweep(g);
+      this.cd = gap + 1.6;
+    } else if (move === 'lunge') {
+      this.startLunge(g);
+      this.cd = gap + 2.4;
+    }
+  }
+
+  // --- 短剣の雨 ---
+  startDaggers(g) {
+    const p = g.player;
+    const n = 6 + this.phase * 2;
+    say({ target: this.anchor, text: 'ふっておいで。', tone: 'boss', life: 1.4 });
+    for (let i = 0; i < n; i++) {
+      const tx = clamp(p.x + rng.range(-70, 70), 30, g.level.w * TILE - 30);
+      const ty = clamp(p.y + rng.range(-60, 60), HORIZON_Y + 24, g.level.h * TILE - 24);
+      g.hazards.push({ kind: 'dagger', x: tx, y: ty, t: -i * 0.06, warn: 0.95, dmg: 2, r: 13, done: false });
+    }
+    sfx('magic');
+  }
+
+  // --- 腕なぎ払い ---
+  startSweep(g) {
+    const p = g.player;
+    const y = clamp(p.y + rng.range(-14, 14), HORIZON_Y + 34, g.level.h * TILE - 34);
+    const dir = rng() < 0.5 ? 1 : -1;
+    say({ target: this.anchor, text: 'どいて。', tone: 'boss', life: 1.2 });
+    g.hazards.push({
+      kind: 'sweep', y, dir, t: 0, warn: 0.9, sweep: 0.55, dmg: 2, h: 15, done: false,
+      x0: dir > 0 ? -30 : g.level.w * TILE + 30,
+    });
+    sfx('swingBig');
+  }
+
+  // --- かぶりつき（画面いっぱいの見せ場）---
+  startLunge(g) {
+    const p = g.player;
+    this.state = 'lunge';
+    this.t = 0;
+    this.lunge = { tx: p.x, ty: p.y, phase: 'warn', bit: false };
+    say({ target: this.anchor, text: 'いただきます。', tone: 'boss', life: 1.3 });
+    sfx('boss');
+    duckMusic(0.05, 2.2);
+  }
+
+  updateLunge(dt, g) {
+    const L = this.lunge;
+    const p = g.player;
+    if (L.phase === 'warn') {
+      L.tx = lerp(L.tx, p.x, 1 - Math.pow(0.06, dt));
+      L.ty = lerp(L.ty, p.y, 1 - Math.pow(0.06, dt));
+      if (this.t > 1.15) { L.phase = 'strike'; this.t = 0; sfx('dash'); FX.shake(4, 0.3); }
+    } else if (L.phase === 'strike') {
+      const k = clamp(this.t / 0.30, 0, 1);
+      if (k >= 1 && !L.bit) {
+        L.bit = true;
+        sfx('bomb');
+        FX.shake(11, 0.6); FX.hitstop(0.09); FX.flash('#ffffff', 0.35);
+        FX.burst(L.tx, L.ty, 26, ['#ffffff', this.def.skinLite, '#d65c4e'], { spMax: 160, life: 0.7 });
+        if (dist(p.x, p.y, L.tx, L.ty) < 40) p.hurt(g, 3, L.tx, L.ty);
+      }
+      if (this.t > 0.62) { L.phase = 'back'; this.t = 0; }
+    } else {
+      if (this.t > 0.55) { this.state = 'idle'; this.t = 0; this.lunge = null; }
+    }
+  }
+
+  /** かぶりつきの拡大率（0 = ふつう）。描画側で使う。 */
+  lungeAmount() {
+    if (this.state !== 'lunge' || !this.lunge) return 0;
+    const L = this.lunge;
+    if (L.phase === 'warn') return 0;
+    if (L.phase === 'strike') return easeOutCubic(clamp(this.t / 0.30, 0, 1));
+    return 1 - easeInCubic(clamp(this.t / 0.55, 0, 1));
+  }
+
+  // --- 描画（背景層：頭・体・腕）---
+  drawBack(ctx, camx, camy) {
+    const def = this.def;
+    const hx = this.headX - camx;
+    const hy = this.headY - camy;
+
+    // 腕（頭のうしろから、地面の手へ）
+    ctx.strokeStyle = def.arm;
+    ctx.lineCap = 'round';
+    for (const h of this.hands) {
+      const px = h.x - camx, py = h.y - camy - h.z;
+      ctx.lineWidth = 11;
+      ctx.beginPath();
+      ctx.moveTo(hx + (h.side > 0 ? 18 : -18), hy + 14);
+      ctx.quadraticCurveTo(hx + h.side * 96, hy - 4, px, py - 6);
+      ctx.stroke();
+      ctx.strokeStyle = '#191426';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(hx + (h.side > 0 ? 18 : -18), hy + 17);
+      ctx.quadraticCurveTo(hx + h.side * 96, hy, px, py - 3);
+      ctx.stroke();
+      ctx.strokeStyle = def.arm;
+    }
+
+    // ふだんは 地平線ぎわに 手をついている
+    for (const side of [-1, 1]) {
+      if (this.hands.some(h => Math.sign(h.x - this.cx) === side)) continue;
+      const rx = this.cx + side * 82 - camx;
+      const ry = HORIZON_Y + 12 - camy + Math.sin(this.t * 0.8 + side) * 1.5;
+      ctx.strokeStyle = def.arm;
+      ctx.lineWidth = 10;
+      ctx.beginPath();
+      ctx.moveTo(hx + side * 18, hy + 14);
+      ctx.quadraticCurveTo(hx + side * 74, hy - 6, rx, ry - 6);
+      ctx.stroke();
+      drawHand(ctx, def, rx, ry, side, false);
+    }
+
+    // 肩から下。地平線のところで切って「沈んでいる」ように見せる
+    const cut = HORIZON_Y - camy;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(-999, -999, 4000, cut + 999);
+    ctx.clip();
+    ctx.fillStyle = def.body;
+    ctx.beginPath();
+    ctx.moveTo(hx - def.headW - 10, cut + 4);
+    ctx.quadraticCurveTo(hx - def.headW + 2, hy + 8, hx, hy + 6);
+    ctx.quadraticCurveTo(hx + def.headW - 2, hy + 8, hx + def.headW + 10, cut + 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    this.drawHead(ctx, hx, hy, 1);
+  }
+
+  /** 頭。scale を上げると かぶりつきの寄り絵になる。 */
+  drawHead(ctx, hx, hy, scale) {
+    const def = this.def;
+    const w = def.headW * scale, h = def.headH * scale;
+    const flash = this.flash > 0;
+    ctx.save();
+    ctx.translate(hx, hy);
+
+    // 輪郭
+    ctx.fillStyle = '#12100f';
+    rounded(ctx, -w - 2, -h - 2, w * 2 + 4, h * 2 + 4, 12 * scale); ctx.fill();
+    // 顔
+    ctx.fillStyle = flash ? '#ffffff' : def.skin;
+    rounded(ctx, -w, -h, w * 2, h * 2, 11 * scale); ctx.fill();
+    ctx.fillStyle = flash ? '#ffffff' : def.skinLite;
+    rounded(ctx, -w + 2 * scale, -h + 2 * scale, w * 2 - 4 * scale, h * 0.7, 8 * scale); ctx.fill();
+
+    // 目（顔の上のほうで大きくふくらむ）
+    const eyeY = -h * 0.36, eyeR = w * 0.31;
+    for (const s of [-1, 1]) {
+      const ex = s * w * 0.40;
+      ctx.fillStyle = '#12100f';
+      ctx.beginPath(); ctx.ellipse(ex, eyeY, eyeR + 1.5 * scale, eyeR * 1.06 + 1.5 * scale, 0, 0, TAU); ctx.fill();
+      if (this.blink > 0) {
+        ctx.fillStyle = def.skinDark;
+        ctx.beginPath(); ctx.ellipse(ex, eyeY, eyeR, eyeR * 1.06, 0, 0, TAU); ctx.fill();
+      } else {
+        ctx.fillStyle = '#f7f4ea';
+        ctx.beginPath(); ctx.ellipse(ex, eyeY, eyeR, eyeR * 1.06, 0, 0, TAU); ctx.fill();
+        // 瞳はプレイヤーの方をちらちら見る
+        const px = Math.sin(this.t * 1.3 + s) * eyeR * 0.32;
+        const py = Math.cos(this.t * 0.9) * eyeR * 0.22;
+        ctx.fillStyle = '#1b1520';
+        ctx.beginPath(); ctx.ellipse(ex + px, eyeY + py, eyeR * 0.42, eyeR * 0.46, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(ex + px - eyeR * 0.2, eyeY + py - eyeR * 0.3, Math.max(1, 2 * scale), Math.max(1, 2 * scale));
+      }
+    }
+
+    // 口（下半分いっぱいに ぱっくり）
+    const mw = w * 0.80, mh = h * (0.22 + this.mouth * 0.34);
+    const my = h * 0.40;
+    ctx.fillStyle = '#12100f';
+    rounded(ctx, -mw, my - mh, mw * 2, mh * 2, 6 * scale); ctx.fill();
+    ctx.fillStyle = '#5c1620';
+    rounded(ctx, -mw + 1.5 * scale, my - mh + 1.5 * scale, mw * 2 - 3 * scale, mh * 2 - 3 * scale, 5 * scale); ctx.fill();
+    ctx.fillStyle = '#20080e';
+    rounded(ctx, -mw + 3 * scale, my - mh + 3.5 * scale, mw * 2 - 6 * scale, mh * 2 - 7 * scale, 4 * scale); ctx.fill();
+    // 牙
+    ctx.fillStyle = '#f2eee0';
+    const teeth = 7;
+    for (let i = 0; i < teeth; i++) {
+      const tx = -mw + 2 * scale + (i + 0.5) * ((mw * 2 - 4 * scale) / teeth);
+      const th = (2.6 + (i % 2) * 1.6) * scale;
+      ctx.beginPath();
+      ctx.moveTo(tx - 1.6 * scale, my - mh + 2 * scale);
+      ctx.lineTo(tx + 1.6 * scale, my - mh + 2 * scale);
+      ctx.lineTo(tx, my - mh + 2 * scale + th);
+      ctx.closePath(); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(tx - 1.6 * scale, my + mh - 2 * scale);
+      ctx.lineTo(tx + 1.6 * scale, my + mh - 2 * scale);
+      ctx.lineTo(tx, my + mh - 2 * scale - th);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /** かぶりつきの寄り絵。ワールド描画のいちばん上に重ねる。 */
+  drawLungeOverlay(ctx, camx, camy, viewW, viewH) {
+    const amt = this.lungeAmount();
+    if (amt <= 0.001 || !this.lunge) return;
+    const L = this.lunge;
+    const sx = L.tx - camx, sy = L.ty - camy;
+    const scale = lerp(1, 7.5, amt);
+    // 頭が奥から手前へ降ってくる
+    const hx = lerp(this.headX - camx, sx, amt);
+    const hy = lerp(this.headY - camy, sy - this.def.headH * scale * 0.15, amt);
+    ctx.save();
+    ctx.globalAlpha = 1;
+    this.drawHead(ctx, hx, hy, scale);
+    ctx.restore();
+  }
+
+  /** 狙われている位置のしるし（かぶりつきの前触れ） */
+  drawWarn(ctx, camx, camy) {
+    if (this.state !== 'lunge' || !this.lunge || this.lunge.phase !== 'warn') return;
+    const L = this.lunge;
+    const x = Math.round(L.tx - camx), y = Math.round(L.ty - camy);
+    const k = clamp(this.t / 1.15, 0, 1);
+    ctx.save();
+    ctx.globalAlpha = 0.35 + 0.35 * k;
+    ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.ellipse(x, y, 34 * (0.5 + 0.5 * k), 15 * (0.5 + 0.5 * k), 0, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = Math.floor(this.t * 14) % 2 === 0 ? '#ff9b7a' : '#d65c4e';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.ellipse(x, y, 34, 15, 0, 0, TAU); ctx.stroke();
+    ctx.restore();
+  }
+}
+
+return { BOSS_DEF, BossHand, GiantBoss };
 })();
 
 const __M_ui = (function () {
 const { UI, FONT, TILE } = __M_config;
 const { clamp, TAU, formatTime } = __M_util;
-const { SPR, PAL, silhouette, makeCanvas } = __M_art;
+const { SPR, PAL, makeCanvas } = __M_art;
 const { view } = __M_render;
 const { input } = __M_input;
 const { O, TERRAIN_NAME } = __M_world;
@@ -3869,10 +5269,19 @@ const ui = {
   toastText: '', toastT: 0, toastSub: '',
   showControls: true,
   buttons: [],
-  hint: null,          // {text} 画面下の操作ヒント
+  hint: null,          // 画面下に出す白い注釈
+  hintT: 0,
 };
 
-let heartEmpty = null, heartHalf = null;
+/** 画面下に注釈を出す（AfterPlace のチュートリアル表示のような見せかた） */
+function hint(text, sec = 5) {
+  ui.hint = text; ui.hintT = sec;
+}
+function updateHint(dt) {
+  if (!ui.hint) return;
+  ui.hintT -= dt;
+  if (ui.hintT <= 0) { ui.hint = null; ui.hintT = 0; }
+}
 
 function layoutUi() {
   ui.S = clamp(view.cssW / 390, 0.72, 2.0);
@@ -4173,70 +5582,87 @@ function drawMenu(ctx) {
 
 // --- HUD -------------------------------------------------------------------
 
-function ensureHearts() {
-  if (heartEmpty) return;
-  heartEmpty = silhouette(SPR.heart, '#42303a');
-  heartHalf = makeCanvas(8, 8);
-  const c = heartHalf.getContext('2d');
-  c.drawImage(heartEmpty, 0, 0);
-  c.save(); c.beginPath(); c.rect(0, 0, 4, 8); c.clip();
-  c.drawImage(SPR.heart, 0, 0); c.restore();
-}
-
 function drawHud(ctx, g) {
-  ensureHearts();
   const S = ui.S, W = view.cssW;
   const p = g.player;
   const top = ui.padTop;
 
-  // ハート
-  const hs = 2.2 * S;
-  const hearts = Math.ceil(p.maxHp / 2);
-  const perRow = Math.min(hearts, Math.floor((W - 100 * S) / (10 * hs)));
-  for (let i = 0; i < hearts; i++) {
-    const col = i % perRow, row = (i / perRow) | 0;
-    const x = 12 * S + col * 10 * hs, y = top + row * 9 * hs;
-    const v = clamp(p.hp - i * 2, 0, 2);
-    sprite(ctx, v >= 2 ? SPR.heart : v >= 1 ? heartHalf : heartEmpty, x, y, hs);
+  // --- 体力（白いわくの中に赤いマス）---
+  const n = Math.max(1, p.maxHp);
+  const maxBarW = Math.min(W * 0.56, 230 * S);
+  const gap = Math.max(1, 2 * S), pad = 3 * S;
+  const segW = Math.min(14 * S, (maxBarW - pad * 2 - gap * (n - 1)) / n);
+  const segH = Math.max(10 * S, segW * 1.18);
+  const bw = n * segW + (n - 1) * gap + pad * 2;
+  const bh = segH + pad * 2;
+  const bx = 12 * S, by = top;
+
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.45)';
+  ctx.shadowBlur = 6 * S;
+  ctx.shadowOffsetY = 2 * S;
+  roundRect(ctx, bx, by, bw, bh, 3 * S);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+  ctx.restore();
+  for (let i = 0; i < n; i++) {
+    const sx = bx + pad + i * (segW + gap);
+    const filled = i < p.hp;
+    ctx.fillStyle = filled ? (p.hp <= 2 && Math.floor(performance.now() / 220) % 2 === 0 ? '#ff8fa6' : '#ea3a5f') : '#221d2a';
+    ctx.fillRect(sx, by + pad, segW, segH);
   }
 
-  // コイン・カギ
-  const rowsH = Math.ceil(hearts / Math.max(1, perRow)) * 9 * hs;
-  let ix = 12 * S, iy = top + rowsH + 3 * S;
-  sprite(ctx, SPR.coin, ix, iy, 2 * S);
-  txt(ctx, String(p.coins), ix + 20 * S, iy + 2 * S, { size: 13 * S, color: UI.gold });
-  ix += 20 * S + ctx.measureText(String(p.coins)).width + 14 * S;
+  // --- コイン ---
+  const cx0 = bx + bw + 14 * S;
+  sprite(ctx, SPR.coin, cx0, by + bh / 2 - 8 * S, 2 * S);
+  txt(ctx, String(p.coins), cx0 + 22 * S, by + bh / 2 - 10 * S, { size: 17 * S, color: '#ffffff', weight: 700 });
+
+  // --- カギ・遺物（あるときだけ）---
+  let iy = by + bh + 6 * S;
+  let ix = bx;
   if (p.keys > 0) {
     sprite(ctx, SPR.key, ix, iy, 2 * S);
     txt(ctx, String(p.keys), ix + 18 * S, iy + 2 * S, { size: 13 * S, color: UI.ink });
-    ix += 18 * S + 20 * S;
+    ix += 42 * S;
   }
   if (p.relics > 0) {
     sprite(ctx, SPR.gem, ix, iy, 2 * S);
     txt(ctx, `${p.relics}/3`, ix + 18 * S, iy + 2 * S, { size: 13 * S, color: PAL.C });
+    ix += 52 * S;
   }
-  const hudBottom = iy + 20 * S;
 
-  // 右上ボタン（メニュー・マップ）
+  // --- 右上ボタン ---
   const hb = hudButtonLayout();
   drawIconButton(ctx, hb.menu.x, hb.menu.y, hb.menu.icon, 'menu');
   drawIconButton(ctx, hb.map.x, hb.map.y, hb.map.icon, 'map');
 
-  // ボス HP（左上のステータス表示の下に置く。かぶらないように）
-  const boss = g.enemies.find(e => e.boss && !e.dead && e.aggro);
-  if (boss) {
-    const bw = Math.min(W - 40 * S, 250 * S), bh = 11 * S;
-    const bxx = (W - bw) / 2, byy = hudBottom + 10 * S;
-    panel(ctx, bxx - 5 * S, byy - 3 * S, bw + 10 * S, bh + 21 * S, { r: 6 * S, inner: false });
-    txt(ctx, boss.def.name, bxx + bw / 2, byy, { size: 10.5 * S, align: 'center', color: UI.gold, outline: false });
-    const yy = byy + 15 * S;
-    ctx.fillStyle = '#2a1420'; ctx.fillRect(bxx, yy, bw, bh);
-    ctx.fillStyle = UI.red;
-    ctx.fillRect(bxx, yy, bw * clamp(boss.hp / boss.maxHp, 0, 1), bh);
-    ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(bxx + 0.5, yy + 0.5, bw - 1, bh - 1);
+  // --- ボスの体力（顔を隠さないよう画面の下側に置く）---
+  const giant = g.boss && g.boss.hp > 0 && g.boss.state !== 'intro' ? g.boss : null;
+  const small = giant ? null : g.enemies.find(e => e.boss && !e.dead && e.aggro);
+  const bs = giant || small;
+  if (bs) {
+    const w2 = Math.min(W - 44 * S, 268 * S), h2 = 11 * S;
+    const x2 = (W - w2) / 2;
+    const y2 = view.cssH - ui.padBottom - 124 * S;
+    txt(ctx, bs.name || bs.def.name, x2 + w2 / 2, y2 - 19 * S,
+      { size: 12.5 * S, align: 'center', color: '#f6e3e3', weight: 700 });
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    roundRect(ctx, x2 - 2 * S, y2 - 2 * S, w2 + 4 * S, h2 + 4 * S, 2 * S); ctx.fill();
+    ctx.fillStyle = '#2a1420';
+    ctx.fillRect(x2, y2, w2, h2);
+    const ratio = clamp(bs.hp / bs.maxHp, 0, 1);
+    const grd = ctx.createLinearGradient(x2, y2, x2, y2 + h2);
+    grd.addColorStop(0, '#f26a72');
+    grd.addColorStop(1, '#b81f3a');
+    ctx.fillStyle = grd;
+    ctx.fillRect(x2, y2, w2 * ratio, h2);
+    ctx.fillStyle = 'rgba(255,255,255,0.28)';
+    ctx.fillRect(x2, y2, w2 * ratio, 2 * S);
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.4 * S;
+    ctx.strokeRect(x2 + 0.5, y2 + 0.5, w2 - 1, h2 - 1);
   }
 
-  // トースト
+  // --- トースト ---
   if (ui.toastT > 0) {
     const a = clamp(ui.toastT / 0.4, 0, 1);
     ctx.globalAlpha = a;
@@ -4253,10 +5679,15 @@ function drawHud(ctx, g) {
     ctx.globalAlpha = 1;
   }
 
-  // 操作ヒント
-  if (ui.hint) {
-    const hy = view.cssH - ui.padBottom - 150 * S;
-    txt(ctx, ui.hint, W / 2, hy, { size: 12 * S, align: 'center', color: UI.ink });
+  // --- 画面下の説明（AfterPlace 風の白い注釈）---
+  if (ui.hint && !dialog.active && !menu.active) {
+    const lines = String(ui.hint).split('\n');
+    const size = 13 * S;
+    const hy = view.cssH - ui.padBottom - 150 * S - (lines.length - 1) * size * 1.4;
+    ctx.globalAlpha = clamp(ui.hintT, 0, 1);
+    lines.forEach((l, i) => txt(ctx, l, W / 2, hy + i * size * 1.4,
+      { size, align: 'center', color: '#ffffff', weight: 600, outlineColor: 'rgba(8,6,12,0.85)' }));
+    ctx.globalAlpha = 1;
   }
 }
 
@@ -4627,10 +6058,11 @@ function drawEnding(ctx, g, t) {
     ctx.fillRect(x, y, 2 * S, 2 * S);
   }
   ctx.globalAlpha = 1;
-  txt(ctx, '夜が明けた', W / 2, H * 0.28, { size: 28 * S, align: 'center', color: UI.gold });
+  txt(ctx, '朝', W / 2, H * 0.22, { size: 30 * S, align: 'center', color: UI.gold });
   const lines = [
-    'かがやきが 谷にもどり、',
-    'アフターグローヴ に 人のこえが かえってきた。',
+    '門の むこうは、ただの 朝だった。',
+    'もどってきた人たちは、すこし しずかに なっていた。',
+    'それでも 名前は ちゃんと 覚えていた。',
     '',
     `救った村人  ${g.rescued} 人`,
     `建てた家    ${g.overworld.level.buildings.filter(b => b.built).length} けん`,
@@ -4638,13 +6070,13 @@ function drawEnding(ctx, g, t) {
     `あつめたコイン  ${g.player.coins}`,
     `かかった時間  ${formatTime(g.playTime)}`,
   ];
-  lines.forEach((l, i) => txt(ctx, l, W / 2, H * 0.40 + i * 22 * S, {
-    size: i >= 3 ? 13 * S : 13.5 * S, align: 'center', color: i >= 3 ? UI.ink : UI.inkDim,
+  lines.forEach((l, i) => txt(ctx, l, W / 2, H * 0.36 + i * 22 * S, {
+    size: i >= 4 ? 13 * S : 12.5 * S, align: 'center', color: i >= 4 ? UI.ink : UI.inkDim,
   }));
   txt(ctx, 'タップでタイトルへ', W / 2, H - ui.padBottom - 50 * S, { size: 12 * S, align: 'center', color: UI.inkDim });
 }
 
-return { ui, layoutUi, txt, roundRect, panel, wrapText, toast, dialog, openDialog, closeDialog, updateDialog, registerDialogButtons, drawDialog, menu, openMenu, closeMenu, registerMenuButtons, drawMenu, drawHud, hudButtonLayout, controlLayout, drawTouchControls, invalidateMap, drawMap, drawTitle, titleButtons, drawGameOver, gameOverButtons, drawEnding };
+return { ui, hint, updateHint, layoutUi, txt, roundRect, panel, wrapText, toast, dialog, openDialog, closeDialog, updateDialog, registerDialogButtons, drawDialog, menu, openMenu, closeMenu, registerMenuButtons, drawMenu, drawHud, hudButtonLayout, controlLayout, drawTouchControls, invalidateMap, drawMap, drawTitle, titleButtons, drawGameOver, gameOverButtons, drawEnding };
 })();
 
 const __M_save = (function () {
@@ -4699,6 +6131,7 @@ function saveGame(g) {
       buildings: g.overworld.level.buildings.map(b => (b.built ? 1 : 0)),
       villagers: g.overworld.villagers.map(v => (v.freed ? 1 : 0)),
       dungeons: g.overworld.dungeons.map(d => (d.cleared ? 1 : 0)),
+      relicTaken: g.overworld.dungeons.map(d => (d.relicTaken ? 1 : 0)),
       opened: [...g.openedChests],
       explored: rleEncode(g.overworld.level.explored),
       rescued: g.rescued,
@@ -4741,6 +6174,7 @@ function applySave(g, d) {
   (d.buildings || []).forEach((v, i) => { if (lv.buildings[i]) lv.buildings[i].built = !!v; });
   (d.villagers || []).forEach((v, i) => { if (g.overworld.villagers[i]) g.overworld.villagers[i].freed = !!v; });
   (d.dungeons || []).forEach((v, i) => { if (g.overworld.dungeons[i]) g.overworld.dungeons[i].cleared = !!v; });
+  (d.relicTaken || []).forEach((v, i) => { if (g.overworld.dungeons[i]) g.overworld.dungeons[i].relicTaken = !!v; });
   g.openedChests = new Set(d.opened || []);
   if (d.explored) lv.explored.set(rleDecode(d.explored, lv.explored.length));
   return true;
@@ -4766,10 +6200,18 @@ const { generateOverworld, layoutTown, applyBuildings, O, OBJ_DEF, BUILDINGS, TE
 const { generateDungeon } = __M_dungeon;
 const { Player, Enemy, Pickup, Projectile, Npc, Bomb } = __M_entities;
 const { hasSave, saveGame, loadSaveData, applySave, deleteSave } = __M_save;
+const { generateArena } = __M_arena;
+const { GiantBoss } = __M_boss;
+const { updateHazards } = __M_hazard;
+const { sayQueue, updateBubbles, drawBubbles, clearBubbles, bubbles } = __M_bubble;
+const Story = __M_story;
 // ---------------------------------------------------------------------------
 // AFTERGROVE — 縦持ち・片手操作の探索アクション RPG
 // main.js : 全体の進行・状態遷移・当たり判定の解決
 // ---------------------------------------------------------------------------
+
+const ARENA_SUFFIX = '#boss';
+const BOSS_OF = { dg0: 'grinner', dg1: 'hollow', dg2: 'ashking' };
 
 const canvas = document.getElementById('screen');
 const boot = document.getElementById('boot');
@@ -4785,6 +6227,7 @@ const g = {
   dungeons: {},             // id -> 生成結果
   player: null,
   enemies: [], pickups: [], projectiles: [], npcs: [], bombs: [],
+  hazards: [], boss: null, arenas: {}, arenaSeed: 1234,
   openedChests: new Set(),
   rescued: 0, kills: 0,
   gateOpen: false, won: false,
@@ -4800,6 +6243,7 @@ const g = {
 };
 window.__game = g;
 g.view = R.view;          // デバッグ／自動テスト用に表示情報を公開
+g.bubbles = bubbles;
 
 // --- ヘルパ（entities / render から呼ばれる）--------------------------------
 g.drawList = function () {
@@ -4846,6 +6290,25 @@ g.blastTiles = function (px, py, r = 2) {
       else if (id === O.CRACK) { g.level.setO(x, y, O.NONE); FX.burst(x * TILE + 8, y * TILE + 8, 10, [PAL.w, PAL.v]); }
     }
 };
+/** 巨大ボスを倒したとき：遺物があらわれ、門がひらく */
+g.onGiantBossDefeated = function (boss) {
+  const dgId = g.levelId.replace(ARENA_SUFFIX, '');
+  const def = g.overworld.dungeons.find(d => d.id === dgId);
+  if (def) def.cleared = true;
+  const ar = g.arenas[g.levelId];
+  g.kills++;
+  saveGame(g);
+  setTimeout(() => {
+    if (!ar || g.levelId !== ar.level.id) return;
+    ar.level.setO(ar.relicPos.x, ar.relicPos.y, O.RELIC);
+    FX.ring(ar.relicPos.x * TILE + 8, ar.relicPos.y * TILE + 8, { r0: 4, r1: 60, life: 0.8, color: PAL.t, width: 2 });
+    sfx('relic');
+    playMusic('field');
+    UIx.toast('しずかになった', 'おくに 遺物が あらわれた');
+    UIx.hint('遺物にふれると 村へもどれます。', 6);
+  }, 3200);
+};
+
 g.onBossDefeated = function (boss) {
   const dg = g.dungeons[g.levelId];
   if (!dg) return;
@@ -4913,13 +6376,12 @@ function newGame(seed) {
   g.state = 'play'; g.stateT = 0;
   UIx.invalidateMap();
   UIx.openDialog({
-    speaker: 'アフターグローヴ',
-    text: [
-      'まもの に おそわれ、\n村のみんなは 散りぢりに なった。\nのこったのは あなた ひとり。',
-      '＜あそびかた＞\n画面を ドラッグ → 歩く\nその場で タップ → 斬る\n長押しして 離す → 回転斬り',
-      'まずは 村のまわりを 歩いて、\nとらわれた 村人を さがそう。\n檻は 斬れば こわれる。',
-    ],
-    onDone: () => UIx.toast('目標：とらわれた村人を さがす', '右上のマップで 行き先が わかる'),
+    speaker: '　',
+    text: [...Story.INTRO, ...Story.INTRO_HOWTO],
+    onDone: () => {
+      UIx.toast('目標：とらわれた村人を さがす', '右上のマップで 行き先が わかる');
+      UIx.hint('画面を ドラッグ すると 歩きます。\nその場を タップ すると 斬ります。', 8);
+    },
   });
 }
 
@@ -4949,6 +6411,8 @@ function enterLevel(id, px, py, fade = true) {
   const doIt = () => {
     g.enemies.length = 0; g.pickups.length = 0;
     g.projectiles.length = 0; g.bombs.length = 0; g.npcs.length = 0;
+    g.hazards.length = 0; g.boss = null;
+    clearBubbles();
     FX.clearFx();
 
     if (id === 'field') {
@@ -4959,6 +6423,29 @@ function enterLevel(id, px, py, fade = true) {
         px = r.x; py = r.y;
       }
       spawnTownNpcs();
+    } else if (id.endsWith(ARENA_SUFFIX)) {
+      // --- ボスの舞台 ---
+      const dgId = id.slice(0, -ARENA_SUFFIX.length);
+      const def = g.overworld.dungeons.find(d => d.id === dgId);
+      let ar = g.arenas[id];
+      if (!ar) {
+        ar = generateArena({ id, name: def.name + ' ‧ 最奥', seed: def.seed, theme: def.theme });
+        ar.level.setO(ar.spawn.x, ar.spawn.y + 1, O.EXIT);
+        g.arenas[id] = ar;
+      }
+      g.level = ar.level;
+      g.levelId = id;
+      g.arenaSeed = def.seed;
+      if (!def.cleared) {
+        g.boss = new GiantBoss(g, BOSS_OF[dgId] || 'grinner', def.level);
+        playMusic('boss');
+        UIx.hint('すばやく 指を はらうと ころがって よけられます。\n地面に降りた「手」だけが 斬れます。', 9);
+      } else if (!def.relicTaken) {
+        // 倒したのに 取り忘れていた遺物は、ちゃんと待っている
+        g.level.setO(ar.relicPos.x, ar.relicPos.y, O.RELIC);
+      }
+      px = px ?? ar.spawn.x * TILE + 8;
+      py = py ?? ar.spawn.y * TILE + 8;
     } else {
       let dg = g.dungeons[id];
       const def = g.overworld.dungeons.find(d => d.id === id);
@@ -4976,11 +6463,6 @@ function enterLevel(id, px, py, fade = true) {
       g.levelId = id;
       // 敵を配置（クリア後も再湧きする）
       for (const e of dg.enemies) g.spawnEnemy(e.x * TILE + 8, e.y * TILE + 8, e.kind, e.level);
-      if (!def.cleared) {
-        const b = dg.boss;
-        const be = g.spawnEnemy(b.x * TILE + 8, b.y * TILE + 8, b.kind, b.level);
-        be.aggro = false;
-      }
       // 開けた宝箱を反映
       for (const c of dg.chests) if (g.openedChests.has(`${id}:${c.x},${c.y}`)) g.level.setO(c.x, c.y, O.CHEST_OPEN);
       px = px ?? dg.spawn.x * TILE + 8;
@@ -4992,7 +6474,7 @@ function enterLevel(id, px, py, fade = true) {
     R.snapCamera(g.player, g.level);
     g.level.markExplored(g.player.tx, g.player.ty, g.level.dark ? 5 : 9);
     UIx.invalidateMap();
-    playMusic(g.level.kind === 'dungeon' ? 'dungeon' : nearTown() ? 'town' : 'field');
+    playMusic(g.level.kind === 'arena' ? 'boss' : g.level.kind === 'dungeon' ? 'dungeon' : nearTown() ? 'town' : 'field');
     clearHeld();
   };
   if (!fade) { doIt(); return; }
@@ -5003,42 +6485,46 @@ function enterLevel(id, px, py, fade = true) {
 function spawnTownNpcs() {
   const ow = g.overworld;
   const built = ow.level.buildings.filter(b => b.built && b.id !== 'home');
-  const lines = {
-    shop: ['いらっしゃい！\nなにか いるかい？', 'カギ は だいじに とっておきな。'],
-    smith: ['剣を きたえてやろう。\nコインを もっておいで。'],
-    healer: ['からだを 大事にね。\nハートの器を ふやせるよ。'],
-    sage: ['星がめぐり、\n門がひらく…\n遺物を 3つ あつめなさい。'],
-    farm: ['きのみが 実ったよ。\nもっていきな。'],
-    well: ['この井戸の 水は つめたくて うまい。'],
-  };
   let i = 0;
   for (const b of built) {
-    const npc = new Npc(b.x * TILE + b.w * TILE / 2, (b.y + b.h) * TILE + 10, i + 2, {
+    g.npcs.push(new Npc(b.x * TILE + b.w * TILE / 2, (b.y + b.h) * TILE + 10, i + 2, {
       name: b.name,
-      lines: lines[b.id] || ['ようこそ。'],
-    });
-    g.npcs.push(npc);
+      lines: Story.SHOP_TALK[b.id] || ['ようこそ。'],
+    }));
     i++;
   }
-  // 救出した村人は広場をうろつく
+  // 助けた村人は 広場を うろつく
   const n = Math.min(g.rescued, 8);
   for (let k = 0; k < n; k++) {
     const a = (k / Math.max(1, n)) * Math.PI * 2;
-    const npc = new Npc(
+    g.npcs.push(new Npc(
       ow.townX * TILE + 8 + Math.cos(a) * (34 + k * 4),
       ow.townY * TILE + 8 + Math.sin(a) * (30 + k * 3),
-      k, {
-        name: '村人',
-        lines: [
-          ['たすけてくれて ありがとう。\nこの村、また にぎやかに なるといいね。',
-           'まもの は 夜に つよくなる…\n気をつけて。',
-           'ほら穴の おくには 「番人」が いるらしい。',
-           'コインを ためて 家を 建てよう！',
-           'くさむら や つぼ を 斬ると\nなにか 出てくるよ。'][k % 5],
-        ],
-      });
-    g.npcs.push(npc);
+      k, { name: '村人', lines: [Story.VILLAGER_IDLE[k % Story.VILLAGER_IDLE.length]] }));
   }
+  // 帽子の人は いつも どこかに立っている
+  const spot = hatmanSpot();
+  const hat = new Npc(spot.x * TILE + 8, spot.y * TILE + 12, 0, {
+    name: '帽子の人', spr: 'hatman', static: true, bob: true, hatman: true, lines: [],
+  });
+  hat.data.hatman = true;
+  g.npcs.push(hat);
+  g.hatman = hat;
+}
+
+/** 進み具合で 立ち位置が すこしずつ変わる */
+function hatmanSpot() {
+  const ow = g.overworld;
+  const cleared = ow.dungeons.filter(d => d.cleared).length;
+  const ring = 11 + cleared * 2;
+  const ang = -0.7 + cleared * 1.9;
+  let x = Math.round(ow.townX + Math.cos(ang) * ring);
+  let y = Math.round(ow.townY + Math.sin(ang) * ring);
+  for (let k = 0; k < 40 && ow.level.solid(x, y); k++) {
+    x = Math.round(ow.townX + Math.cos(ang + k * 0.3) * (ring + (k % 5)));
+    y = Math.round(ow.townY + Math.sin(ang + k * 0.3) * (ring + (k % 5)));
+  }
+  return { x, y };
 }
 
 function nearTown() {
@@ -5201,6 +6687,9 @@ function updatePlay(dt) {
     FX.updateFx(dt * 0.4);
   }
 
+  updateBubbles(dt);
+  UIx.updateHint(dt);
+
   // 自動セーブ
   if (g.autoSaveT > 20 && g.levelId === 'field' && !uiBusy) {
     g.autoSaveT = 0;
@@ -5218,6 +6707,7 @@ function updatePlay(dt) {
   if (g.mapOpen) {
     UIx.drawMap(sctx, g);
   } else {
+    drawBubbles(sctx, (wx, wy) => ({ x: (wx - g.camx) * R.view.scale, y: (wy - g.camy) * R.view.scale }), UIx.ui.S);
     UIx.drawHud(sctx, g);
     if (!UIx.menu.active && !UIx.dialog.active) UIx.drawTouchControls(sctx, g);
     UIx.drawDialog(sctx);
@@ -5269,6 +6759,13 @@ function simulate(dt) {
     // 片手ジェスチャ中は溜めゲージをキャラにも反映（きらめき表示用）
     if (input.gStill && input.gHeld > 0 && canSpin) p.charge = input.gHeld;
 
+    // 払い（スワイプ）または回避キーで ローリング
+    if (input.swiped) {
+      let dx = input.swipeX, dy = input.swipeY;
+      if (Math.hypot(dx, dy) < 0.1) { const v = DIR_VEC[p.dir]; dx = v[0]; dy = v[1]; }
+      p.startRoll(dx, dy);
+    }
+
     if (input.bPressed) useItem();
   } else { g.interact = null; p.charge = 0; }
 
@@ -5289,6 +6786,10 @@ function simulate(dt) {
   for (const e of g.bombs) e.update(dt, g);
   for (let i = g.bombs.length - 1; i >= 0; i--) if (g.bombs[i].dead) g.bombs.splice(i, 1);
   for (const e of g.npcs) e.update(dt, g);
+
+  // --- ボスと、地面に降る危険 ---
+  if (g.boss) g.boss.update(dt, g);
+  updateHazards(dt, g);
 
   // --- 探索マーク ---
   g.level.markExplored(p.tx, p.ty, g.level.dark ? 4 : 8);
@@ -5382,13 +6883,11 @@ function freeVillager(x, y) {
   const b = BUILDINGS.find(bb => bb.id === v.building);
   const npc = new Npc(x * TILE + 8, y * TILE + 18, v.kind, { static: true, name: '村人' });
   g.npcs.push(npc);
+  const rl = Story.RESCUE_LINES[g.rescued % Story.RESCUE_LINES.length];
   UIx.openDialog({
     speaker: '村人',
     portrait: v.kind % SPR.villagers.length,
-    text: [
-      'たすかった…！ ありがとう。',
-      `わたし、村で ${b ? b.name : 'お店'} を ひらけるよ。\nさきに もどっているね。`,
-    ],
+    text: [rl[0], `${rl[1]}\n${b ? `（村に「${b.name}」が 建てられる）` : ''}`],
     onDone: () => {
       const i = g.npcs.indexOf(npc);
       if (i >= 0) g.npcs.splice(i, 1);
@@ -5438,6 +6937,9 @@ function findInteract() {
     if (id === O.DOOR) return { type: 'door', x: x * TILE + 8, y: y * TILE - 4, tx: x, ty: y };
     if (id === O.GATE) return { type: 'gate', x: x * TILE + 8, y: y * TILE - 4, tx: x, ty: y };
     if (id === O.EXIT) return { type: 'exit', x: x * TILE + 8, y: y * TILE - 4, tx: x, ty: y };
+    if (id === O.PORTAL) return { type: 'portal', x: x * TILE + 8, y: y * TILE - 6, tx: x, ty: y };
+    if (id === O.VENDING) return { type: 'vending', x: x * TILE + 8, y: y * TILE - 6, tx: x, ty: y };
+    if (id === O.SHRINE) return { type: 'shrine', x: x * TILE + 8, y: y * TILE - 4, tx: x, ty: y };
     if (id === O.RELIC) return { type: 'relic', x: x * TILE + 8, y: y * TILE - 4, tx: x, ty: y };
   }
   return null;
@@ -5448,20 +6950,27 @@ function doInteract(t) {
   switch (t.type) {
     case 'npc': {
       const n = t.npc;
+      if (n.data.hatman) {
+        sayQueue(n, Story.hatmanLines(g), { tone: 'boss', per: 3.2 });
+        sfx('ui');
+        return;
+      }
       const b = g.level.buildings.find(bb => bb.built && bb.name === n.name);
       if (b) { openBuildingMenu(b); return; }
-      UIx.openDialog({ speaker: n.name, portrait: n.kind, text: n.lines });
+      sayQueue(n, n.lines, { per: 3.0 });
       sfx('ui');
       break;
     }
     case 'building': openBuildingMenu(t.b); break;
     case 'sign': {
       const s = g.overworld.signs.find(s => s.x === t.tx && s.y === t.ty);
-      UIx.openDialog({ speaker: '立て札', text: [s ? s.text : 'なにも 書かれていない。'] });
+      sayQueue({ x: t.x, y: t.y + 6, dead: false }, [s ? s.text : 'なにも 書かれていない。'], { per: 3.6 });
       sfx('ui');
       break;
     }
     case 'chest': openChest(t.tx, t.ty); break;
+    case 'vending': useVending(t); break;
+    case 'shrine': useShrine(t); break;
     case 'cave': {
       const d = g.overworld.dungeons.find(d => d.x === t.tx && d.y === t.ty);
       if (!d) return;
@@ -5471,6 +6980,27 @@ function doInteract(t) {
       break;
     }
     case 'exit': enterLevel('field', null, null, true); break;
+    case 'portal': {
+      const dgId = g.levelId;
+      const def = g.overworld.dungeons.find(d => d.id === dgId);
+      if (!def) return;
+      if (def.cleared) {
+        UIx.openDialog({ speaker: '門', text: ['むこう側は もう しずかだ。'] });
+        return;
+      }
+      UIx.openDialog({
+        speaker: '古い門',
+        text: ['むこうから 息づかいが きこえる。', '入るか？'],
+        choices: ['入る', 'やめる'],
+        onChoice: (i) => {
+          if (i !== 0) return;
+          g.returnPos = { x: g.player.x, y: g.player.y + 20 };
+          g.dungeonReturn = dgId;
+          enterLevel(dgId + ARENA_SUFFIX, null, null, true);
+        },
+      });
+      break;
+    }
     case 'door': {
       if (p.keys > 0) {
         p.keys--;
@@ -5495,7 +7025,7 @@ function doInteract(t) {
         g.level.setO(t.tx, t.ty, O.NONE);
         sfx('relic'); FX.flash('#ffffff', 0.9); FX.shake(6, 0.6);
         UIx.openDialog({
-          speaker: '???', text: ['三つの遺物が 光を とりもどした。', '門が ひらく——'],
+          speaker: '古い門', text: ['三つの 遺物が 光を とりもどした。', '門が、ひらく——'],
           onDone: () => { g.won = true; saveGame(g); g.state = 'ending'; g.stateT = 0; stopMusic(); },
         });
       } else {
@@ -5507,16 +7037,87 @@ function doInteract(t) {
     case 'relic': {
       g.level.setO(t.tx, t.ty, O.NONE);
       p.relics++;
+      if (g.levelId.endsWith(ARENA_SUFFIX)) {
+        const d = g.overworld.dungeons.find(dd => dd.id === g.levelId.replace(ARENA_SUFFIX, ''));
+        if (d) d.relicTaken = true;
+      }
       sfx('relic'); FX.flash('#ffffff', 0.8);
       FX.ring(t.x, t.y + 8, { r0: 4, r1: 50, life: 0.6, color: PAL.t, width: 2 });
       saveGame(g);
+      const inArena = g.levelId.endsWith(ARENA_SUFFIX);
       UIx.openDialog({
-        speaker: '遺物', text: [`遺物を てにいれた！ (${p.relics}/3)`,
-          p.relics >= 3 ? '三つ そろった。\n「古い門」へ 向かおう。' : 'まだ 光が たりない…'],
+        speaker: '遺物', text: [`遺物を てにいれた。 (${p.relics}/3)`,
+          p.relics >= 3 ? '三つ そろった。\n東の「古い門」へ。' : 'まだ 光が たりない。'],
+        onDone: () => { if (inArena) enterLevel('field', null, null, true); },
       });
       break;
     }
   }
+}
+
+const DIRS8 = ['きた', 'きたひがし', 'ひがし', 'みなみひがし', 'みなみ', 'みなみにし', 'にし', 'きたにし'];
+
+/** 祠：いちばん近い用事の方角を おしえてくれる */
+function useShrine(t) {
+  const ow = g.overworld;
+  const p = g.player;
+  const targets = [];
+  for (const v of ow.villagers) if (!v.freed) targets.push({ x: v.x, y: v.y, what: 'とらわれた だれか' });
+  for (const d of ow.dungeons) if (!d.cleared) targets.push({ x: d.x, y: d.y, what: d.name });
+  if (p.relics >= 3 && ow.gate) targets.push({ x: ow.gate.x, y: ow.gate.y, what: '古い門' });
+
+  let best = null, bd = Infinity;
+  for (const tg of targets) {
+    const d = dist(tg.x, tg.y, p.tx, p.ty);
+    if (d < bd) { bd = d; best = tg; }
+  }
+  sfx('magic');
+  if (!best) {
+    sayQueue({ x: t.x, y: t.y + 4, dead: false }, ['もう、さがすものは ないみたい。'], { per: 3 });
+    return;
+  }
+  const a = Math.atan2(best.y - p.ty, best.x - p.tx);
+  const idx = Math.round(((a + Math.PI / 2) / (Math.PI * 2)) * 8 + 8) % 8;
+  const far = bd < 14 ? 'すぐそこ' : bd < 34 ? 'すこし 歩く' : 'ずいぶん 遠い';
+  // 行き先をマップにも うつす
+  g.level.markExplored(best.x, best.y, 4);
+  UIx.invalidateMap();
+  sayQueue({ x: t.x, y: t.y + 4, dead: false },
+    [`${DIRS8[idx]} の ほうに\n「${best.what}」が ある。`, `${far}。\n気をつけて。`], { per: 3.2 });
+}
+
+/** 自販機：15 コインで なにか出る（出ないこともある）*/
+function useVending(t) {
+  const p = g.player;
+  if (p.coins < 15) {
+    sfx('error');
+    UIx.openDialog({ speaker: '自販機', text: ['コインが たりない。\n（15 コイン）'] });
+    return;
+  }
+  UIx.openMenu({
+    title: '自販機',
+    sub: 'なにが出るかは 運しだい（15 コイン）',
+    items: [
+      {
+        label: 'ボタンを おす', sub: `所持 ${p.coins} コイン`, cost: 15,
+        action: () => {
+          p.coins -= 15;
+          const r = Math.random();
+          FX.burst(t.x, t.y + 14, 8, [PAL.A, PAL.C, PAL.s]);
+          if (r < 0.30) { p.potions++; sfx('buy'); UIx.toast(Story.VENDING_HIT[0]); }
+          else if (r < 0.55) { p.bombs += 2; sfx('buy'); UIx.toast(Story.VENDING_HIT[1]); }
+          else if (r < 0.72) { p.coins += 32; sfx('coin'); UIx.toast(Story.VENDING_HIT[2]); }
+          else if (r < 0.82) { p.heal(4); sfx('heart'); UIx.toast(Story.VENDING_HIT[3]); }
+          else {
+            sfx('error');
+            UIx.toast(Story.VENDING_MISS[(Math.random() * Story.VENDING_MISS.length) | 0]);
+          }
+          saveGame(g);
+        },
+      },
+      { label: 'やめる', action: () => {} },
+    ],
+  });
 }
 
 function openChest(x, y) {

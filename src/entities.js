@@ -89,6 +89,8 @@ export class Entity {
 // ---------------------------------------------------------------------------
 // プレイヤー
 // ---------------------------------------------------------------------------
+export const ROLL = { dur: 0.36, speed: 175, iframe: 0.26, cool: 0.10 };
+
 export class Player extends Entity {
   constructor(x, y) {
     super(x, y);
@@ -119,12 +121,36 @@ export class Player extends Entity {
     this.relics = 0;
     this.deadT = 0;
     this.spawnGuard = 0.4;
+    // 回避（ローリング）
+    this.roll = 0;
+    this.rollDir = { x: 0, y: 1 };
+    this.rollCd = 0;
+    this.iframe = 0;
+    this.trail = [];
+  }
+
+  get rolling() { return this.roll > 0; }
+
+  /** 払い入力で ころがる。無敵は序盤だけ。 */
+  startRoll(dx, dy) {
+    if (this.roll > 0 || this.rollCd > 0 || this.hp <= 0) return false;
+    const l = Math.hypot(dx, dy) || 1;
+    this.rollDir = { x: dx / l, y: dy / l };
+    this.roll = ROLL.dur;
+    this.rollCd = ROLL.dur + ROLL.cool;
+    this.iframe = ROLL.iframe;
+    this.attack = 0; this.spin = 0; this.charge = 0;
+    this.dir = dirFromVec(this.rollDir.x, this.rollDir.y);
+    this.trail.length = 0;
+    sfx('dash');
+    FX.dust(this.x, this.y, 4);
+    return true;
   }
 
   get dmg() { return 2 + this.swordLv; }
 
   hurt(g, amount, fromX, fromY) {
-    if (this.invuln > 0 || this.spawnGuard > 0 || this.hp <= 0) return false;
+    if (this.invuln > 0 || this.iframe > 0 || this.spawnGuard > 0 || this.hp <= 0) return false;
     this.hp = Math.max(0, this.hp - amount);
     this.invuln = PLAYER.invuln;
     this.hurtT = 0.3;
@@ -186,6 +212,23 @@ export class Player extends Entity {
     this.cooldown = Math.max(0, this.cooldown - dt);
     this.comboT = Math.max(0, this.comboT - dt);
     this.spawnGuard = Math.max(0, this.spawnGuard - dt);
+    this.rollCd = Math.max(0, this.rollCd - dt);
+    this.iframe = Math.max(0, this.iframe - dt);
+
+    // --- 回避中はほかの操作を受けつけない ---
+    if (this.roll > 0) {
+      this.roll = Math.max(0, this.roll - dt);
+      const k = 1 - this.roll / ROLL.dur;
+      const sp = ROLL.speed * (1 - k * 0.45);
+      this.trail.push({ x: this.x, y: this.y, dir: this.dir, a: 1 });
+      if (this.trail.length > 5) this.trail.shift();
+      for (const tr of this.trail) tr.a *= 0.86;
+      this.moveBy(g, this.rollDir.x * sp * dt, this.rollDir.y * sp * dt);
+      if (Math.random() < 0.5) FX.dust(this.x, this.y, 1);
+      this.applyKnockback(dt, g);
+      return;
+    }
+    if (this.trail.length) this.trail.length = 0;
 
     // 攻撃・ため・道具の入力は main.js の simulate() が一括で扱う
 
@@ -216,6 +259,26 @@ export class Player extends Entity {
   draw(ctx) {
     this.drawShadow(ctx);
     const frames = SPR.hero[this.dir];
+
+    // --- 回避中は くるりと回る（残像つき）---
+    if (this.roll > 0) {
+      const k = 1 - this.roll / ROLL.dur;
+      for (const tr of this.trail) {
+        if (tr.a < 0.06) continue;
+        ctx.globalAlpha = tr.a * 0.5;
+        const sp = SPR.hero[tr.dir][0];
+        ctx.drawImage(sp, Math.round(tr.x - 8), Math.round(tr.y - 16));
+      }
+      ctx.globalAlpha = 1;
+      const spr = frames[Math.floor(k * 4) % 2];
+      ctx.save();
+      ctx.translate(Math.round(this.x), Math.round(this.y - 8));
+      ctx.rotate(k * TAU * (this.rollDir.x < 0 ? -1 : 1));
+      ctx.drawImage(this.iframe > 0 && Math.floor(k * 12) % 2 === 0 ? whiteOf(spr) : spr, -8, -8);
+      ctx.restore();
+      return;
+    }
+
     const f = this.walkT > 0 ? (Math.floor(this.walkT) % 2) : 0;
     const bob = this.walkT > 0 && f === 1 ? -1 : 0;
     const flashing = this.invuln > 0 && Math.floor(this.invuln * 18) % 2 === 0;
@@ -688,6 +751,8 @@ export class Npc extends Entity {
     this.cd = rng.range(1, 3);
     this.vx = 0; this.vy = 0;
     this.static = !!data.static;
+    this.spr = data.spr || null;      // 村人以外の見た目（帽子の人など）
+    this.bob = !!data.bob;
   }
   update(dt, g) {
     this.t += dt;
@@ -719,6 +784,11 @@ export class Npc extends Entity {
   }
   draw(ctx) {
     this.drawShadow(ctx);
+    if (this.spr && SPR[this.spr]) {
+      const b = this.bob ? Math.round(Math.sin(this.t * 2) * 1.2) : 0;
+      this.blit(ctx, SPR[this.spr], 0, b);
+      return;
+    }
     const set = SPR.villagers[this.kind];
     const f = this.walkT > 0 ? Math.floor(this.walkT) % 2 : 0;
     this.blit(ctx, set[this.dir][f], 0, this.walkT > 0 && f === 1 ? -1 : 0);

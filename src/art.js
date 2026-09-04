@@ -196,6 +196,9 @@ export const TERRAIN_COLOR = {
   ash:    '#3a3340',
   stone:  P.v,
   floor:  '#4a4352',
+  swamp:  '#24463a',
+  moss:   '#3a7d48',
+  void:   '#3b3648',
   water:  P.i,
   deep:   P.h,
   cliff:  P.v,
@@ -255,6 +258,9 @@ export function buildArt() {
   SPR.crystal = buildSprite(D.CRYSTAL);
   SPR.relic = buildSprite(D.RELIC);
   SPR.grave = buildSprite(D.GRAVE);
+  SPR.hatman = buildSprite(D.HATMAN);
+  SPR.vending = buildSprite(D.VENDING);
+  SPR.shrine = buildSprite(D.SHRINE);
   // 枯れ木（灰バイオーム用）：木を灰色に色替え
   SPR.deadTree = buildSprite(D.TREE, { a: 'v', b: 'w', '9': 'u', d: 'u', c: 'u' });
   SPR.snowPine = buildSprite(D.PINE, { a: 'x', b: 'y', '9': 'w' });
@@ -272,6 +278,10 @@ export function buildArt() {
   T.ash    = [0, 1, 2, 3].map(v => groundTile(['#312b39', '#3a3340', '#443c4b'], [0.34, 0.50, 0.16], 606, 0.82, v));
   T.stone  = [0, 1, 2, 3].map(v => groundTile(['#4e4e58', '#5c5c68', '#6c6c78'], [0.32, 0.50, 0.18], 707, 0.78, v));
   T.floor  = [0, 1, 2, 3].map(v => groundTile(['#413a4a', '#4a4352', '#554d5e'], [0.34, 0.50, 0.16], 808, 0.76, v));
+  // ボス戦の沼地／草の島
+  T.swamp  = [0, 1, 2, 3].map(v => groundTile(['#20402f', '#264a37', '#2c5540'], [0.36, 0.48, 0.16], 909, 0.52, v));
+  T.moss   = [0, 1, 2, 3].map(v => groundTile(['#2f6b3e', '#3a7d48', '#468d54'], [0.32, 0.50, 0.18], 1010, 0.84, v));
+  T.void   = [0, 1, 2, 3].map(() => groundTile(['#3b3648', '#3b3648', '#3b3648'], [1, 0, 0], 1111, 1, 0));
   T.water  = [0, 1, 2, 3].map(f => waterTile(f, false));
   T.deep   = [0, 1, 2, 3].map(f => waterTile(f, true));
   T.cliff  = [0, 1, 2, 3].map(v => cliffTile(v));

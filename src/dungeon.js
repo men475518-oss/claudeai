@@ -189,9 +189,14 @@ export function generateDungeon(def, playerLevel = 1) {
     }
   }
 
-  // ボス
-  const boss = { x: bossRoom.cx, y: bossRoom.y + 2, kind: theme.boss, level: def.level, boss: true };
-  const relicPos = { x: bossRoom.cx, y: bossRoom.cy + Math.max(1, (bossRoom.h >> 1) - 2) };
+  // ボス部屋のおくに「向こう側」への門
+  const portalPos = { x: bossRoom.cx, y: bossRoom.y + 2 };
+  lv.setO(portalPos.x, portalPos.y, O.PORTAL);
+  lv.setO(portalPos.x - 2, portalPos.y, O.TORCH);
+  lv.setO(portalPos.x + 2, portalPos.y, O.TORCH);
+  for (let x = bossRoom.x + 1; x < bossRoom.x + bossRoom.w - 1; x++)
+    for (let y = bossRoom.y + 1; y < bossRoom.y + bossRoom.h - 1; y++)
+      if (lv.o(x, y) === O.POT) lv.setO(x, y, O.NONE);
 
   // 壁際の飾り
   for (let y = 0; y < H; y++)
@@ -199,5 +204,5 @@ export function generateDungeon(def, playerLevel = 1) {
       if (lv.g(x, y) === theme.floor && rng() < 0.012 && lv.o(x, y) === O.NONE)
         lv.setO(x, y, O.POT);
 
-  return { level: lv, spawn, exitTile, rooms, bossRoom, boss, relicPos, enemies, chests, doorPos, secrets, theme: def.theme };
+  return { level: lv, spawn, exitTile, rooms, bossRoom, portalPos, enemies, chests, doorPos, secrets, theme: def.theme };
 }

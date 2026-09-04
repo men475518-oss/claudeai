@@ -3,24 +3,26 @@
 // ---------------------------------------------------------------------------
 import { TILE, WORLD_W, WORLD_H } from './config.js';
 import { makeRng, fbm, ridge, hash2, clamp } from './util.js';
+import { SIGNS } from './story.js';
 
 // --- 地形 ------------------------------------------------------------------
 export const T = {
   GRASS: 0, FOREST: 1, SAND: 2, DIRT: 3, MARSH: 4, ASH: 5,
   STONE: 6, WATER: 7, DEEP: 8, FLOOR: 9, CLIFF: 10, WALL: 11, RUIN: 12,
+  SWAMP: 13, VOID: 14, MOSS: 15,
 };
-export const TERRAIN_NAME = ['grass', 'forest', 'sand', 'dirt', 'marsh', 'ash', 'stone', 'water', 'deep', 'floor', 'cliff', 'wall', 'wallRuin'];
-export const TERRAIN_SOLID = [0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1];
-export const TERRAIN_SLOW = [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0];
+export const TERRAIN_NAME = ['grass', 'forest', 'sand', 'dirt', 'marsh', 'ash', 'stone', 'water', 'deep', 'floor', 'cliff', 'wall', 'wallRuin', 'swamp', 'void', 'moss'];
+export const TERRAIN_SOLID = [0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 0, 1, 0];
+export const TERRAIN_SLOW = [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 // 描画時の重なり優先度（高いほうが低いほうの上へディザで乗る）
-export const TERRAIN_PRIO = [3, 2, 5, 1, 2, 4, 5, 7, 6, 5, 9, 9, 9];
+export const TERRAIN_PRIO = [3, 2, 5, 1, 2, 4, 5, 7, 6, 5, 9, 9, 9, 4, 0, 3];
 
 // --- オブジェクト ----------------------------------------------------------
 export const O = {
   NONE: 0, TREE: 1, PINE: 2, BUSH: 3, ROCK: 4, SIGN: 5, CAVE: 6, CHEST: 7,
   CHEST_OPEN: 8, DOOR: 9, GATE: 10, CRYSTAL: 11, GRAVE: 12, DEADTREE: 13,
   FLOWER: 14, TUFT: 15, STAIRS: 16, PILLAR: 17, CAGE: 18, CRACK: 19,
-  EXIT: 20, RELIC: 21, SNOWPINE: 22, TORCH: 23, POT: 24,
+  EXIT: 20, RELIC: 21, SNOWPINE: 22, TORCH: 23, POT: 24, PORTAL: 25, BOUND: 26, VENDING: 27, SHRINE: 28,
 };
 
 /** [sprite, solid, hp(0=壊せない), tall(縦に重なる大きさ)] */
@@ -49,6 +51,10 @@ export const OBJ_DEF = {
   [O.CRACK]:     { spr: null, solid: 1, hp: 0, tall: 0 },
   [O.TORCH]:     { spr: null, solid: 1, hp: 0, tall: 1 },
   [O.POT]:       { spr: null, solid: 0, hp: 1, tall: 0 },
+  [O.PORTAL]:    { spr: 'gate', solid: 1, hp: 0, tall: 0 },
+  [O.BOUND]:     { spr: null, solid: 1, hp: 0, tall: 0 },   // 見えない仕切り
+  [O.VENDING]:   { spr: 'vending', solid: 1, hp: 0, tall: 1 },
+  [O.SHRINE]:    { spr: 'shrine', solid: 1, hp: 0, tall: 0 },
 };
 
 export function objSolid(id) { const d = OBJ_DEF[id]; return d ? d.solid : 0; }
@@ -389,21 +395,49 @@ export function generateOverworld(seed) {
 
   // --- 立て札 ---
   const signs = [];
-  const signTexts = [
-    'ここは アフターグローヴ。\nむかしは にぎやかな村だった。',
-    'まもの に つかまった 仲間を\nさがしている…',
-    'ほら穴 には たからと きけんが\nねむっている。',
-    'くさ を きると なにか 出るかも。',
-    'つよい敵には ためうち（Ａ長押し）を。',
-  ];
-  for (let i = 0; i < signTexts.length; i++) {
-    for (let k = 0; k < 800; k++) {
-      const ang = rng() * Math.PI * 2, r = 11 + i * 5 + rng() * 8;
+  for (let i = 0; i < SIGNS.length; i++) {
+    for (let k = 0; k < 1200; k++) {
+      const ang = rng() * Math.PI * 2, r = 10 + i * 6 + rng() * 10;
       const x = Math.round(townX + Math.cos(ang) * r), y = Math.round(townY + Math.sin(ang) * r);
       if (!reachable(x, y) || level.solid(x, y)) continue;
       level.setO(x, y, O.SIGN);
-      signs.push({ x, y, text: signTexts[i] });
+      signs.push({ x, y, text: SIGNS[i] });
       break;
+    }
+  }
+
+  // --- 祠（近くの用事を教えてくれる）---
+  const shrines = [];
+  for (let i = 0; i < 4; i++) {
+    for (let k = 0; k < 3000; k++) {
+      const x = rng.irange(6, WORLD_W - 7), y = rng.irange(6, WORLD_H - 7);
+      if (!reachable(x, y) || level.solid(x, y)) continue;
+      const d = Math.hypot(x - townX, y - townY);
+      if (d < 16 || d > 80) continue;
+      if (shrines.some(sh => Math.hypot(sh.x - x, sh.y - y) < 26)) continue;
+      level.setO(x, y, O.SHRINE);
+      shrines.push({ x, y });
+      break;
+    }
+  }
+
+  // --- 自販機（村に一台、外に二台）---
+  const vendings = [];
+  const putVending = (x, y) => {
+    if (!level.inb(x, y) || level.solid(x, y)) return false;
+    level.setO(x, y, O.VENDING);
+    vendings.push({ x, y });
+    return true;
+  };
+  putVending(townX + 3, townY + 2);
+  for (let i = 0; i < 2; i++) {
+    for (let k = 0; k < 2500; k++) {
+      const x = rng.irange(6, WORLD_W - 7), y = rng.irange(6, WORLD_H - 7);
+      if (!reachable(x, y)) continue;
+      const d = Math.hypot(x - townX, y - townY);
+      if (d < 20 || d > 70) continue;
+      if (vendings.some(v => Math.hypot(v.x - x, v.y - y) < 30)) continue;
+      if (putVending(x, y)) break;
     }
   }
 
@@ -426,7 +460,7 @@ export function generateOverworld(seed) {
     carvePath(level, townX, townY, gate.x, gate.y + 2, rng, 0);
   }
 
-  return { level, townX, townY, dungeons, villagers, chests, signs, gate, reach };
+  return { level, townX, townY, dungeons, villagers, chests, signs, shrines, vendings, gate, reach };
 }
 
 /** 村の広場に建物区画を作る */

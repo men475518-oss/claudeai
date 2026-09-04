@@ -4,7 +4,7 @@
 // ---------------------------------------------------------------------------
 import { UI, FONT, TILE } from './config.js';
 import { clamp, TAU, formatTime } from './util.js';
-import { SPR, PAL, silhouette, makeCanvas } from './art.js';
+import { SPR, PAL, makeCanvas } from './art.js';
 import { view } from './render.js';
 import { input } from './input.js';
 import { O, TERRAIN_NAME } from './world.js';
@@ -16,10 +16,19 @@ export const ui = {
   toastText: '', toastT: 0, toastSub: '',
   showControls: true,
   buttons: [],
-  hint: null,          // {text} 画面下の操作ヒント
+  hint: null,          // 画面下に出す白い注釈
+  hintT: 0,
 };
 
-let heartEmpty = null, heartHalf = null;
+/** 画面下に注釈を出す（AfterPlace のチュートリアル表示のような見せかた） */
+export function hint(text, sec = 5) {
+  ui.hint = text; ui.hintT = sec;
+}
+export function updateHint(dt) {
+  if (!ui.hint) return;
+  ui.hintT -= dt;
+  if (ui.hintT <= 0) { ui.hint = null; ui.hintT = 0; }
+}
 
 export function layoutUi() {
   ui.S = clamp(view.cssW / 390, 0.72, 2.0);
@@ -320,70 +329,87 @@ export function drawMenu(ctx) {
 
 // --- HUD -------------------------------------------------------------------
 
-function ensureHearts() {
-  if (heartEmpty) return;
-  heartEmpty = silhouette(SPR.heart, '#42303a');
-  heartHalf = makeCanvas(8, 8);
-  const c = heartHalf.getContext('2d');
-  c.drawImage(heartEmpty, 0, 0);
-  c.save(); c.beginPath(); c.rect(0, 0, 4, 8); c.clip();
-  c.drawImage(SPR.heart, 0, 0); c.restore();
-}
-
 export function drawHud(ctx, g) {
-  ensureHearts();
   const S = ui.S, W = view.cssW;
   const p = g.player;
   const top = ui.padTop;
 
-  // ハート
-  const hs = 2.2 * S;
-  const hearts = Math.ceil(p.maxHp / 2);
-  const perRow = Math.min(hearts, Math.floor((W - 100 * S) / (10 * hs)));
-  for (let i = 0; i < hearts; i++) {
-    const col = i % perRow, row = (i / perRow) | 0;
-    const x = 12 * S + col * 10 * hs, y = top + row * 9 * hs;
-    const v = clamp(p.hp - i * 2, 0, 2);
-    sprite(ctx, v >= 2 ? SPR.heart : v >= 1 ? heartHalf : heartEmpty, x, y, hs);
+  // --- 体力（白いわくの中に赤いマス）---
+  const n = Math.max(1, p.maxHp);
+  const maxBarW = Math.min(W * 0.56, 230 * S);
+  const gap = Math.max(1, 2 * S), pad = 3 * S;
+  const segW = Math.min(14 * S, (maxBarW - pad * 2 - gap * (n - 1)) / n);
+  const segH = Math.max(10 * S, segW * 1.18);
+  const bw = n * segW + (n - 1) * gap + pad * 2;
+  const bh = segH + pad * 2;
+  const bx = 12 * S, by = top;
+
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.45)';
+  ctx.shadowBlur = 6 * S;
+  ctx.shadowOffsetY = 2 * S;
+  roundRect(ctx, bx, by, bw, bh, 3 * S);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+  ctx.restore();
+  for (let i = 0; i < n; i++) {
+    const sx = bx + pad + i * (segW + gap);
+    const filled = i < p.hp;
+    ctx.fillStyle = filled ? (p.hp <= 2 && Math.floor(performance.now() / 220) % 2 === 0 ? '#ff8fa6' : '#ea3a5f') : '#221d2a';
+    ctx.fillRect(sx, by + pad, segW, segH);
   }
 
-  // コイン・カギ
-  const rowsH = Math.ceil(hearts / Math.max(1, perRow)) * 9 * hs;
-  let ix = 12 * S, iy = top + rowsH + 3 * S;
-  sprite(ctx, SPR.coin, ix, iy, 2 * S);
-  txt(ctx, String(p.coins), ix + 20 * S, iy + 2 * S, { size: 13 * S, color: UI.gold });
-  ix += 20 * S + ctx.measureText(String(p.coins)).width + 14 * S;
+  // --- コイン ---
+  const cx0 = bx + bw + 14 * S;
+  sprite(ctx, SPR.coin, cx0, by + bh / 2 - 8 * S, 2 * S);
+  txt(ctx, String(p.coins), cx0 + 22 * S, by + bh / 2 - 10 * S, { size: 17 * S, color: '#ffffff', weight: 700 });
+
+  // --- カギ・遺物（あるときだけ）---
+  let iy = by + bh + 6 * S;
+  let ix = bx;
   if (p.keys > 0) {
     sprite(ctx, SPR.key, ix, iy, 2 * S);
     txt(ctx, String(p.keys), ix + 18 * S, iy + 2 * S, { size: 13 * S, color: UI.ink });
-    ix += 18 * S + 20 * S;
+    ix += 42 * S;
   }
   if (p.relics > 0) {
     sprite(ctx, SPR.gem, ix, iy, 2 * S);
     txt(ctx, `${p.relics}/3`, ix + 18 * S, iy + 2 * S, { size: 13 * S, color: PAL.C });
+    ix += 52 * S;
   }
-  const hudBottom = iy + 20 * S;
 
-  // 右上ボタン（メニュー・マップ）
+  // --- 右上ボタン ---
   const hb = hudButtonLayout();
   drawIconButton(ctx, hb.menu.x, hb.menu.y, hb.menu.icon, 'menu');
   drawIconButton(ctx, hb.map.x, hb.map.y, hb.map.icon, 'map');
 
-  // ボス HP（左上のステータス表示の下に置く。かぶらないように）
-  const boss = g.enemies.find(e => e.boss && !e.dead && e.aggro);
-  if (boss) {
-    const bw = Math.min(W - 40 * S, 250 * S), bh = 11 * S;
-    const bxx = (W - bw) / 2, byy = hudBottom + 10 * S;
-    panel(ctx, bxx - 5 * S, byy - 3 * S, bw + 10 * S, bh + 21 * S, { r: 6 * S, inner: false });
-    txt(ctx, boss.def.name, bxx + bw / 2, byy, { size: 10.5 * S, align: 'center', color: UI.gold, outline: false });
-    const yy = byy + 15 * S;
-    ctx.fillStyle = '#2a1420'; ctx.fillRect(bxx, yy, bw, bh);
-    ctx.fillStyle = UI.red;
-    ctx.fillRect(bxx, yy, bw * clamp(boss.hp / boss.maxHp, 0, 1), bh);
-    ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(bxx + 0.5, yy + 0.5, bw - 1, bh - 1);
+  // --- ボスの体力（顔を隠さないよう画面の下側に置く）---
+  const giant = g.boss && g.boss.hp > 0 && g.boss.state !== 'intro' ? g.boss : null;
+  const small = giant ? null : g.enemies.find(e => e.boss && !e.dead && e.aggro);
+  const bs = giant || small;
+  if (bs) {
+    const w2 = Math.min(W - 44 * S, 268 * S), h2 = 11 * S;
+    const x2 = (W - w2) / 2;
+    const y2 = view.cssH - ui.padBottom - 124 * S;
+    txt(ctx, bs.name || bs.def.name, x2 + w2 / 2, y2 - 19 * S,
+      { size: 12.5 * S, align: 'center', color: '#f6e3e3', weight: 700 });
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    roundRect(ctx, x2 - 2 * S, y2 - 2 * S, w2 + 4 * S, h2 + 4 * S, 2 * S); ctx.fill();
+    ctx.fillStyle = '#2a1420';
+    ctx.fillRect(x2, y2, w2, h2);
+    const ratio = clamp(bs.hp / bs.maxHp, 0, 1);
+    const grd = ctx.createLinearGradient(x2, y2, x2, y2 + h2);
+    grd.addColorStop(0, '#f26a72');
+    grd.addColorStop(1, '#b81f3a');
+    ctx.fillStyle = grd;
+    ctx.fillRect(x2, y2, w2 * ratio, h2);
+    ctx.fillStyle = 'rgba(255,255,255,0.28)';
+    ctx.fillRect(x2, y2, w2 * ratio, 2 * S);
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.4 * S;
+    ctx.strokeRect(x2 + 0.5, y2 + 0.5, w2 - 1, h2 - 1);
   }
 
-  // トースト
+  // --- トースト ---
   if (ui.toastT > 0) {
     const a = clamp(ui.toastT / 0.4, 0, 1);
     ctx.globalAlpha = a;
@@ -400,10 +426,15 @@ export function drawHud(ctx, g) {
     ctx.globalAlpha = 1;
   }
 
-  // 操作ヒント
-  if (ui.hint) {
-    const hy = view.cssH - ui.padBottom - 150 * S;
-    txt(ctx, ui.hint, W / 2, hy, { size: 12 * S, align: 'center', color: UI.ink });
+  // --- 画面下の説明（AfterPlace 風の白い注釈）---
+  if (ui.hint && !dialog.active && !menu.active) {
+    const lines = String(ui.hint).split('\n');
+    const size = 13 * S;
+    const hy = view.cssH - ui.padBottom - 150 * S - (lines.length - 1) * size * 1.4;
+    ctx.globalAlpha = clamp(ui.hintT, 0, 1);
+    lines.forEach((l, i) => txt(ctx, l, W / 2, hy + i * size * 1.4,
+      { size, align: 'center', color: '#ffffff', weight: 600, outlineColor: 'rgba(8,6,12,0.85)' }));
+    ctx.globalAlpha = 1;
   }
 }
 
@@ -774,10 +805,11 @@ export function drawEnding(ctx, g, t) {
     ctx.fillRect(x, y, 2 * S, 2 * S);
   }
   ctx.globalAlpha = 1;
-  txt(ctx, '夜が明けた', W / 2, H * 0.28, { size: 28 * S, align: 'center', color: UI.gold });
+  txt(ctx, '朝', W / 2, H * 0.22, { size: 30 * S, align: 'center', color: UI.gold });
   const lines = [
-    'かがやきが 谷にもどり、',
-    'アフターグローヴ に 人のこえが かえってきた。',
+    '門の むこうは、ただの 朝だった。',
+    'もどってきた人たちは、すこし しずかに なっていた。',
+    'それでも 名前は ちゃんと 覚えていた。',
     '',
     `救った村人  ${g.rescued} 人`,
     `建てた家    ${g.overworld.level.buildings.filter(b => b.built).length} けん`,
@@ -785,8 +817,8 @@ export function drawEnding(ctx, g, t) {
     `あつめたコイン  ${g.player.coins}`,
     `かかった時間  ${formatTime(g.playTime)}`,
   ];
-  lines.forEach((l, i) => txt(ctx, l, W / 2, H * 0.40 + i * 22 * S, {
-    size: i >= 3 ? 13 * S : 13.5 * S, align: 'center', color: i >= 3 ? UI.ink : UI.inkDim,
+  lines.forEach((l, i) => txt(ctx, l, W / 2, H * 0.36 + i * 22 * S, {
+    size: i >= 4 ? 13 * S : 12.5 * S, align: 'center', color: i >= 4 ? UI.ink : UI.inkDim,
   }));
   txt(ctx, 'タップでタイトルへ', W / 2, H - ui.padBottom - 50 * S, { size: 12 * S, align: 'center', color: UI.inkDim });
 }

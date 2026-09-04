@@ -6,6 +6,8 @@ import { clamp, hash2, lerp, TAU } from './util.js';
 import { SPR, TERRAIN_TILES, EDGE, PAL, makeCanvas } from './art.js';
 import { T, O, TERRAIN_NAME, TERRAIN_PRIO, OBJ_DEF } from './world.js';
 import * as FX from './fx.js';
+import { drawArenaBackdrop } from './arena.js';
+import { drawHazardsUnder, drawHazardsOver } from './hazard.js';
 
 export const view = {
   w: VIEW_W, h: 300,          // 論理解像度
@@ -93,12 +95,20 @@ function clampCam(level) {
 
 export function updateCamera(dt, target, level, lookAhead = 0) {
   cam.tx = target.x;
-  cam.ty = target.y - 6;
+  // ボス戦は上（地平線とボスの顔）を見せたいので、少し上に構える
+  cam.ty = target.y - (level.kind === 'arena' ? view.h * 0.22 : 6);
   const k = 1 - Math.pow(0.0006, dt);
   cam.x = lerp(cam.x, cam.tx, k);
   cam.y = lerp(cam.y, cam.ty, k);
   clampCam(level);
+  if (level.kind === 'arena') {
+    // どんなに小さい画面でも ボスの顔が切れないところで止める
+    cam.y = Math.min(cam.y, ARENA_CAM_TOP + view.h / 2);
+  }
 }
+
+/** アリーナでカメラが写す最上端（ボスの頭より少し上）*/
+const ARENA_CAM_TOP = 8;
 
 // ---------------------------------------------------------------------------
 
@@ -293,8 +303,12 @@ export function drawScene(g) {
   const camy = Math.round(cam.y - view.h / 2 + sy);
   g.camx = camx; g.camy = camy;
 
-  ctx.fillStyle = level.kind === 'dungeon' ? '#0d0b12' : PAL.h;
-  ctx.fillRect(0, 0, view.w, view.h);
+  if (level.kind === 'arena') {
+    drawArenaBackdrop(ctx, g, camx, camy, view.w, view.h, performance.now() / 1000);
+  } else {
+    ctx.fillStyle = level.kind === 'dungeon' ? '#0d0b12' : PAL.h;
+    ctx.fillRect(0, 0, view.w, view.h);
+  }
 
   const x0 = Math.max(0, Math.floor(camx / TILE));
   const y0 = Math.max(0, Math.floor(camy / TILE));
@@ -305,6 +319,7 @@ export function drawScene(g) {
   for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
       const t = level.ground[y * level.w + x];
+      if (t === T.VOID) continue;                  // 「向こう側」は背景がそのまま見える
       const name = TERRAIN_NAME[t];
       const px = x * TILE - camx, py = y * TILE - camy;
       const set = TERRAIN_TILES[name];
@@ -316,6 +331,7 @@ export function drawScene(g) {
   for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
       const t = level.ground[y * level.w + x];
+      if (t === T.VOID) continue;
       const prio = TERRAIN_PRIO[t];
       const px = x * TILE - camx, py = y * TILE - camy;
       const nb = [[0, -1, 0], [0, 1, 1], [-1, 0, 2], [1, 0, 3]];
@@ -330,6 +346,15 @@ export function drawScene(g) {
       }
     }
   }
+
+  // --- ボスの頭・腕（地面より上、キャラより下）---
+  if (g.boss) g.boss.drawBack(ctx, camx, camy);
+
+  // --- 危険の予告（地面のしるし）---
+  ctx.save();
+  ctx.translate(-camx, -camy);
+  drawHazardsUnder(ctx, g);
+  ctx.restore();
 
   // --- 低いオブジェクト・装飾 ---
   drawables.length = 0;
@@ -371,7 +396,15 @@ export function drawScene(g) {
     else { ctx.restore(); drawDecor(ctx, d.id, d.px, d.py, d.x, d.y); ctx.save(); ctx.translate(-camx, -camy); }
   }
   FX.drawParticles(ctx);
+  drawHazardsOver(ctx, g);
+  if (g.boss) g.boss.drawWarn(ctx, 0, 0);
   ctx.restore();
+
+  // --- 木もれ日（屋外だけ）---
+  if (level.kind === 'field') drawSunShafts(ctx, camx, camy);
+
+  // --- かぶりつきの寄り絵 ---
+  if (g.boss) g.boss.drawLungeOverlay(ctx, camx, camy, view.w, view.h);
 
   // --- 明かり（ダンジョン）---
   if (level.dark) drawLight(g, camx, camy);
@@ -400,6 +433,27 @@ export function drawScene(g) {
     ctx.fillText(t.text, Math.round(t.x), Math.round(t.y));
   }
   ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+/** ななめに差しこむ光。うっすらで十分。 */
+function drawSunShafts(ctx, camx, camy) {
+  const t = performance.now() / 1000;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = 0.045;
+  ctx.fillStyle = '#fff6d8';
+  const drift = (t * 3) % 90;
+  for (let i = -2; i < 8; i++) {
+    const x = i * 90 + drift - (camx * 0.12) % 90;
+    ctx.beginPath();
+    ctx.moveTo(x, -10);
+    ctx.lineTo(x + 26, -10);
+    ctx.lineTo(x - 40, view.h + 10);
+    ctx.lineTo(x - 66, view.h + 10);
+    ctx.closePath();
+    ctx.fill();
+  }
   ctx.restore();
 }
 

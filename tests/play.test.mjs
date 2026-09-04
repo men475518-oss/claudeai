@@ -80,11 +80,11 @@ const until = async (fn, ms = 3000) => {
  *  g.canAct は「前フレームの値」なので、UI の実状態を直接見ること。 */
 const clearDialogs = async () => {
   await wait(150);
-  for (let i = 0; i < 24; i++) {
+  for (let i = 0; i < 26; i++) {
     const busy = await page.evaluate(() => window.__game.ui.dialog.active || window.__game.ui.menu.active);
     if (!busy) break;
     await page.mouse.click(195, 120);
-    await wait(160);
+    await wait(150);
   }
   await wait(150);
 };
@@ -168,6 +168,40 @@ check('新規ゲームが はじまる', await page.evaluate(() => window.__game
   check('その場長押し → 離すと回転斬りで周囲をなぎ払う', dead >= 3, `${dead}/4 体`);
 }
 
+// --- 3b. すばやく払うと ころがる ---
+{
+  await page.evaluate(() => { const g = window.__game; g.player.rollCd = 0; g.player.roll = 0; });
+  const y0 = await page.evaluate(() => window.__game.player.y);
+  await page.mouse.move(150, 560); await page.mouse.down();
+  await page.mouse.move(150, 665, { steps: 2 });
+  await wait(110);
+  const mid = await page.evaluate(() => ({ roll: window.__game.player.roll, iframe: window.__game.player.iframe }));
+  await page.mouse.up();
+  await wait(450);
+  const y1 = await page.evaluate(() => window.__game.player.y);
+  check('すばやく払うと ころがって よけられる（無敵つき）',
+    mid.roll > 0 && mid.iframe > 0 && y1 - y0 > 30, `dy=${Math.round(y1 - y0)}`);
+}
+
+// --- 3c. 世界のかざり ---
+{
+  const w = await page.evaluate(() => {
+    const g = window.__game, ow = g.overworld;
+    return { signs: ow.signs.length, shrines: ow.shrines.length, vendings: ow.vendings.length, hatman: !!g.hatman };
+  });
+  check('立て札・祠・自販機・帽子の人が 世界にいる',
+    w.signs >= 5 && w.shrines >= 2 && w.vendings >= 2 && w.hatman,
+    `立て札${w.signs} 祠${w.shrines} 自販機${w.vendings}`);
+
+  await page.evaluate(() => { const g = window.__game; g.player.x = g.hatman.x; g.player.y = g.hatman.y + 16; });
+  await wait(300);
+  await tapButton('a');
+  await wait(300);
+  check('帽子の人は 吹き出しで しゃべる',
+    await page.evaluate(() => window.__game.bubbles.length > 0 && !window.__game.ui.dialog.active));
+  await wait(600);
+}
+
 // --- 4. 調べる：会話が開き、剣は振らない ------------------------------------
 {
   await page.evaluate(() => {
@@ -177,9 +211,13 @@ check('新規ゲームが はじまる', await page.evaluate(() => window.__game
   });
   await wait(300);
   await tapButton('a');
-  await wait(150);
-  const r = await page.evaluate(() => ({ attack: window.__game.player.attack, canAct: window.__game.canAct }));
-  check('立て札を調べると会話だけが開く（剣は振らない）', r.attack === 0 && !r.canAct);
+  await wait(200);
+  const r = await page.evaluate(() => ({
+    attack: window.__game.player.attack,
+    bubble: window.__game.bubbles.length > 0,
+    text: window.__game.bubbles[0] && window.__game.bubbles[0].text.slice(0, 12),
+  }));
+  check('立て札を調べると 吹き出しが出る（剣は振らない）', r.attack === 0 && r.bubble, r.text || '');
   await clearDialogs();
 }
 
@@ -236,7 +274,7 @@ check('新規ゲームが はじまる', await page.evaluate(() => window.__game
   check('コインを払って村に建物が建つ', r2.built && r2.coins < 999 && r2.npcs > 0);
 }
 
-// --- 7. ダンジョン：ボス → 遺物 -----------------------------------------------
+// --- 7. ダンジョン → ボスの舞台 → 遺物 ---
 {
   const r1 = await page.evaluate(() => {
     const g = window.__game;
@@ -244,49 +282,68 @@ check('新規ゲームが はじまる', await page.evaluate(() => window.__game
     g.returnPos = { x: d.x * 16 + 8, y: (d.y + 1) * 16 + 8 };
     g.dev.enterLevel(d.id, null, null, false);
     const dg = g.dungeons[d.id];
-    return { level: g.levelId, boss: g.enemies.filter(e => e.boss).length, secrets: dg.secrets.length, dark: g.level.dark };
+    return { level: g.levelId, portal: !!dg.portalPos, secrets: dg.secrets.length, dark: g.level.dark };
   });
-  check('ダンジョンに入れる（ボス・隠し部屋・視界制限つき）',
-    r1.boss === 1 && r1.secrets > 0 && r1.dark, `隠し部屋 ${r1.secrets}`);
+  check('ダンジョンに入れる（隠し部屋・視界制限つき）',
+    r1.portal && r1.secrets > 0 && r1.dark, `隠し部屋 ${r1.secrets}`);
 
-  const r2 = await page.evaluate(async () => {
+  const r2 = await page.evaluate(() => {
+    const g = window.__game;
+    g.returnPos = { x: g.player.x, y: g.player.y };
+    g.dev.enterLevel('dg0#boss', null, null, false);
+    return {
+      level: g.levelId, kind: g.level.kind, boss: !!g.boss,
+      name: g.boss && g.boss.name, hp: g.boss && g.boss.hp,
+    };
+  });
+  check('ボスの舞台に入ると 巨大なボスが待っている',
+    r2.kind === 'arena' && r2.boss && r2.hp > 0, r2.name);
+
+  // 前ぶれ → 手が降りてくる → 殴れる
+  const r3 = await until(() => window.__game.enemies.some(e => e.isPart), 12000);
+  check('ボスが 地面に 手を たたきつけてくる', r3);
+  const r4 = await until(() => window.__game.enemies.some(e => e.isPart && e.state === 'planted'), 6000);
+  check('ついた手は 殴れる状態になる', r4);
+
+  const r5 = await page.evaluate(async () => {
     const g = window.__game;
     const sleep = (ms) => new Promise(res => setTimeout(res, ms));
-    const boss = g.enemies.find(e => e.boss);
-    g.player.maxHp = 60; g.player.hp = 60; g.player.invuln = 999;
-    for (let i = 0; i < 80 && !boss.dead; i++) boss.hurt(g, 10, boss.x, boss.y + 30);
-    await sleep(900);
-    const dg = g.dungeons[g.levelId];
-    return { dead: boss.dead, cleared: g.overworld.dungeons[0].cleared, relic: g.level.o(dg.relicPos.x, dg.relicPos.y) };
+    g.player.maxHp = 60; g.player.hp = 60; g.player.invuln = 9999;
+    const hp0 = g.boss.hp;
+    let guard = 0;
+    while (g.boss.hp > 0 && guard++ < 500) {
+      const hand = g.enemies.find(e => e.isPart && e.state === 'planted');
+      if (hand) hand.hurt(g, 6, hand.x, hand.y + 20);
+      else if (g.boss.state === 'idle' && g.boss.hands.length === 0) g.boss.cd = 0;
+      await sleep(35);
+    }
+    await sleep(700);
+    return { hp0, dead: g.boss.hp <= 0, cleared: g.overworld.dungeons[0].cleared };
   });
-  check('ボスを倒すと遺物があらわれる', r2.dead && r2.cleared && r2.relic !== 0);
+  check('手を たたいて ボスを 倒せる', r5.dead && r5.cleared, `HP ${r5.hp0}`);
+
+  const r6 = await until(() => {
+    const g = window.__game;
+    const a = g.arenas['dg0#boss'];
+    return a && g.level.o(a.relicPos.x, a.relicPos.y) === 21;
+  }, 8000);
+  check('倒すと 遺物が あらわれる', r6);
 
   await page.evaluate(() => {
     const g = window.__game;
-    const dg = g.dungeons[g.levelId];
-    g.player.x = dg.relicPos.x * 16 + 8; g.player.y = dg.relicPos.y * 16 + 8;
+    const a = g.arenas['dg0#boss'];
+    g.player.x = a.relicPos.x * 16 + 8; g.player.y = a.relicPos.y * 16 + 8;
   });
-  const gotRelic = await until(() => window.__game.player.relics === 1);
-  check('遺物を拾える', gotRelic,
-    gotRelic ? '' : JSON.stringify(await page.evaluate(() => {
-      const g = window.__game, dg = g.dungeons[g.levelId];
-      return {
-        relics: g.player.relics, hp: g.player.hp, canAct: g.canAct,
-        ptx: g.player.tx, pty: g.player.ty, rp: dg.relicPos,
-        objThere: g.level.o(dg.relicPos.x, dg.relicPos.y), level: g.levelId,
-        state: g.state, mapOpen: g.mapOpen, transition: !!g.transition,
-        dialog: g.ui.dialog.active ? { speaker: g.ui.dialog.speaker, page: g.ui.dialog.pages[g.ui.dialog.page] } : null,
-        menu: g.ui.menu.active ? g.ui.menu.title : null,
-      };
-    })));
+  check('遺物を 拾える', await until(() => window.__game.player.relics === 1));
   await clearDialogs();
+  await until(() => window.__game.levelId === 'field', 4000);
 }
 
 // --- 8. セーブとロード --------------------------------------------------------
 {
   const r = await page.evaluate(() => {
     const g = window.__game;
-    g.dev.enterLevel('field', null, null, false);
+    if (g.levelId !== 'field') g.dev.enterLevel('field', null, null, false);
     g.player.coins = 321; g.player.swordLv = 2;
     g.dev.save();
     g.dev.continueGame();

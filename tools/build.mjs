@@ -17,8 +17,9 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 // 依存の順番（先に読まれたものだけを参照できる）
 const ORDER = [
-  'config', 'util', 'artdata', 'art', 'audio', 'fx',
-  'world', 'dungeon', 'render', 'input', 'entities', 'ui', 'save', 'main',
+  'config', 'util', 'story', 'artdata', 'art', 'audio', 'fx',
+  'world', 'arena', 'dungeon', 'bubble', 'entities', 'hazard',
+  'render', 'input', 'boss', 'ui', 'save', 'main',
 ];
 
 const RE_IMPORT_NS = /^import\s+\*\s+as\s+([\w$]+)\s+from\s+'\.\/([\w.-]+)\.js';?\s*$/;
@@ -27,6 +28,8 @@ const RE_EXPORT_FN = /^export\s+(?:async\s+)?function\s+([\w$]+)/;
 const RE_EXPORT_CLASS = /^export\s+class\s+([\w$]+)/;
 const RE_EXPORT_VAR = /^export\s+(?:const|let|var)\s+([\w$]+)/;
 const RE_EXPORT_LIST = /^export\s*\{([^}]*)\}\s*;?\s*$/;
+
+const emitted = new Set();
 
 function transform(name) {
   const src = readFileSync(resolve(root, 'src', `${name}.js`), 'utf8');
@@ -37,10 +40,12 @@ function transform(name) {
   for (const line of src.split('\n')) {
     let m;
     if ((m = line.match(RE_IMPORT_NS))) {
+      requireEmitted(name, m[2]);
       head.push(`const ${m[1]} = __M_${m[2]};`);
       continue;
     }
     if ((m = line.match(RE_IMPORT_NAMED))) {
+      requireEmitted(name, m[2]);
       const parts = m[1].split(',').map(s => s.trim()).filter(Boolean).map(s => {
         const as = s.split(/\s+as\s+/);
         return as.length === 2 ? `${as[0].trim()}: ${as[1].trim()}` : s;
@@ -74,8 +79,14 @@ function transform(name) {
   ].join('\n');
 }
 
+/** 依存の順番まちがいを 静かに壊れる前に 見つける */
+function requireEmitted(from, dep) {
+  if (!ORDER.includes(dep)) throw new Error(`${from}.js が ORDER にない ${dep}.js を読んでいます`);
+  if (!emitted.has(dep)) throw new Error(`${from}.js は ${dep}.js より先に置かれています（ORDER を直してください）`);
+}
+
 function bundle() {
-  const parts = ORDER.map(transform);
+  const parts = ORDER.map(n => { const out = transform(n); emitted.add(n); return out; });
   return [
     '/* AFTERGROVE — 単一ファイル版（tools/build.mjs が生成） */',
     '(function () {',

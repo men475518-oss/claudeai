@@ -49,6 +49,7 @@ export function saveGame(g) {
       buildings: g.overworld.level.buildings.map(b => (b.built ? 1 : 0)),
       villagers: g.overworld.villagers.map(v => (v.freed ? 1 : 0)),
       dungeons: g.overworld.dungeons.map(d => (d.cleared ? 1 : 0)),
+      relicTaken: g.overworld.dungeons.map(d => (d.relicTaken ? 1 : 0)),
       opened: [...g.openedChests],
       explored: rleEncode(g.overworld.level.explored),
       rescued: g.rescued,
@@ -91,6 +92,7 @@ export function applySave(g, d) {
   (d.buildings || []).forEach((v, i) => { if (lv.buildings[i]) lv.buildings[i].built = !!v; });
   (d.villagers || []).forEach((v, i) => { if (g.overworld.villagers[i]) g.overworld.villagers[i].freed = !!v; });
   (d.dungeons || []).forEach((v, i) => { if (g.overworld.dungeons[i]) g.overworld.dungeons[i].cleared = !!v; });
+  (d.relicTaken || []).forEach((v, i) => { if (g.overworld.dungeons[i]) g.overworld.dungeons[i].relicTaken = !!v; });
   g.openedChests = new Set(d.opened || []);
   if (d.explored) lv.explored.set(rleDecode(d.explored, lv.explored.length));
   return true;
