@@ -29,6 +29,12 @@ const KIND = {
   library:  { w: 13, h: 19, mobs: 1, names: ['図書館の前', '本のにおい', 'ぬれた紙'] },
 };
 
+// 名前を使い切ったときの ひかえ
+const EXTRA_NAMES = [
+  'なにもない島', 'とちゅうの原', 'ただの草地', 'わすれられた所',
+  'ちいさな空き地', 'すみの島', '名もない丘', 'とおりみち',
+];
+
 const DEPTH_KINDS = [
   ['glade', 'crates', 'glade'],                        // 1
   ['glade', 'forest', 'mushroom', 'crates'],           // 2
@@ -116,7 +122,9 @@ export function generateRoomWorld(seed) {
       const n = pool[(rng.int(pool.length) + i) % pool.length];
       if (!usedNames.has(n)) { usedNames.add(n); return n; }
     }
-    return pool[rng.int(pool.length)] + '（おく）';
+    // ぜんぶ使い切ったら、名もない島として名づける
+    for (const n of EXTRA_NAMES) if (!usedNames.has(n)) { usedNames.add(n); return n; }
+    return 'なまえのない島';
   };
 
   home.kind = 'home'; home.name = '家のまわり'; usedNames.add('家のまわり');
@@ -309,6 +317,18 @@ export function buildRoomLevel(world, room) {
     }
   rng.shuffle(free);
   const take = () => free.pop();
+  /** 大きく描くものは 島のふちから離れた場所へ */
+  const takeInner = () => {
+    for (let i = free.length - 1; i >= 0; i--) {
+      const c = free[i];
+      let ok = true;
+      for (let oy = -2; oy <= 2 && ok; oy++)
+        for (let ox = -2; ox <= 2 && ok; ox++)
+          if (!isGround(c.x + ox, c.y + oy)) ok = false;
+      if (ok) { free.splice(i, 1); return c; }
+    }
+    return take();
+  };
 
   const put = (id, n = 1) => {
     for (let i = 0; i < n; i++) {
@@ -345,7 +365,7 @@ export function buildRoomLevel(world, room) {
   // --- 特別なもの ---
   const spots = {};
   if (room.content.dungeon != null) {
-    const s = take() || { x: Math.round(cx), y: 3 };
+    const s = takeInner() || { x: Math.round(cx), y: 3 };
     lv.setG(s.x, s.y, T.STONE);
     lv.setO(s.x, s.y, O.CAVE);
     spots.cave = s;
@@ -367,8 +387,8 @@ export function buildRoomLevel(world, room) {
     spots.cage = s;
   }
   if (room.content.chest) spots.chest = put(O.CHEST);
-  if (room.content.vending) spots.vending = put(O.VENDING);
-  if (room.content.shrine) spots.shrine = put(O.SHRINE);
+  if (room.content.vending) { const sp = takeInner(); if (sp) { lv.setO(sp.x, sp.y, O.VENDING); spots.vending = sp; } }
+  if (room.content.shrine) { const sp = takeInner(); if (sp) { lv.setO(sp.x, sp.y, O.SHRINE); spots.shrine = sp; } }
   if (room.content.sign != null) spots.sign = put(O.SIGN);
 
   // --- 敵の湧きどころ ---
