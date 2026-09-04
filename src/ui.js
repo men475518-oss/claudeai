@@ -23,16 +23,11 @@ let heartEmpty = null, heartHalf = null;
 
 export function layoutUi() {
   ui.S = clamp(view.cssW / 390, 0.72, 2.0);
-  const cs = getComputedStyle(document.documentElement);
-  ui.padTop = 10 + safeInset('top');
-  ui.padBottom = 8 + safeInset('bottom');
-}
-
-function safeInset(side) {
-  // env(safe-area-inset-*) を CSS 変数経由で取れないので概算
-  const h = window.innerHeight, w = window.innerWidth;
-  if (side === 'top') return (h / w > 1.9) ? 34 : 6;
-  return (h / w > 1.9) ? 18 : 4;
+  // ノッチ／ホームバーぶんの余白（ウィンドウいっぱいに描くときだけ効かせる）
+  const tall = view.winH / view.winW > 1.9;
+  const fullBleed = view.oy < 2;
+  ui.padTop = 10 + (tall && fullBleed ? 34 : 6);
+  ui.padBottom = 8 + (tall && fullBleed ? 18 : 4);
 }
 
 // --- 描画ヘルパ ------------------------------------------------------------
@@ -442,6 +437,7 @@ export function controlLayout() {
   return {
     a: { x: W - 56 * S, y: ay, r: 38 * S },
     b: { x: W - 122 * S, y: ay + 18 * S, r: 26 * S },
+    swap: { x: W - 122 * S, y: ay - 26 * S, r: 15 * S },
     S,
   };
 }
@@ -497,9 +493,28 @@ export function drawTouchControls(ctx, g) {
   ctx.fillStyle = input.b ? '#4a5a7a' : 'rgba(30,22,34,0.8)'; ctx.fill();
   ctx.strokeStyle = PAL.j; ctx.lineWidth = 2.2 * S; ctx.stroke();
   ctx.globalAlpha = 1;
-  const isp = item === 'bomb' ? SPR.bomb : item === 'potion' ? SPR.potion : SPR.gem;
-  sprite(ctx, isp, L.b.x - 10 * S, L.b.y - 12 * S, 2.4 * S);
+  const iconOf = (k) => (k === 'bomb' ? SPR.bomb : k === 'potion' ? SPR.potion : SPR.gem);
+  sprite(ctx, iconOf(item), L.b.x - 10 * S, L.b.y - 12 * S, 2.4 * S);
   txt(ctx, String(cnt), L.b.x + 16 * S, L.b.y + 4 * S, { size: 12 * S, align: 'right', color: cnt > 0 ? UI.ink : '#7c6f84' });
+
+  // 道具の切り替え（次の道具が小さく見えている）
+  const order = ['bomb', 'potion'];
+  if (p.magic) order.push('magic');
+  if (order.length > 1) {
+    const next = order[(order.indexOf(item) + 1) % order.length];
+    ctx.globalAlpha = 0.5;
+    ctx.beginPath(); ctx.arc(L.swap.x, L.swap.y, L.swap.r, 0, TAU);
+    ctx.fillStyle = 'rgba(30,22,34,0.8)'; ctx.fill();
+    ctx.strokeStyle = PAL.w; ctx.lineWidth = 1.6 * S; ctx.stroke();
+    ctx.globalAlpha = 0.85;
+    sprite(ctx, iconOf(next), L.swap.x - 6 * S, L.swap.y - 7 * S, 1.5 * S);
+    ctx.globalAlpha = 1;
+    // 循環をあらわす小さな矢印
+    ctx.strokeStyle = PAL.x; ctx.lineWidth = 1.2 * S;
+    ctx.beginPath();
+    ctx.arc(L.swap.x, L.swap.y, L.swap.r - 3 * S, -0.6, 1.6);
+    ctx.stroke();
+  }
 }
 
 function drawSwordIcon(ctx, cx, cy, r) {
@@ -588,9 +603,20 @@ export function drawMap(ctx, g) {
   if (level.id === 'field') {
     const ow = g.overworld;
     for (const b of level.buildings) if (b.built) mark(b.x + b.w / 2, b.y + b.h / 2, '#e8c46a', 4);
-    for (const d of ow.dungeons) if (explored(d.x, d.y)) mark(d.x, d.y, d.cleared ? '#7fb8d4' : '#d65c4e', 5);
+    // ほら穴と門は「行き先」なので未探索でも うっすら見える
+    for (const d of ow.dungeons) {
+      const seen = explored(d.x, d.y);
+      ctx.globalAlpha = seen ? 1 : 0.42;
+      mark(d.x, d.y, d.cleared ? '#7fb8d4' : '#d65c4e', seen ? 5 : 4);
+      ctx.globalAlpha = 1;
+    }
+    if (ow.gate) {
+      const seen = explored(ow.gate.x, ow.gate.y);
+      ctx.globalAlpha = seen ? 1 : 0.42;
+      mark(ow.gate.x, ow.gate.y, '#e6c2f5', seen ? 5 : 4);
+      ctx.globalAlpha = 1;
+    }
     for (const v of ow.villagers) if (!v.freed && explored(v.x, v.y)) mark(v.x, v.y, '#b57ad4', 4);
-    if (ow.gate && explored(ow.gate.x, ow.gate.y)) mark(ow.gate.x, ow.gate.y, '#e6c2f5', 5);
   } else {
     for (let y = 0; y < level.h; y++)
       for (let x = 0; x < level.w; x++) {
@@ -610,6 +636,17 @@ export function drawMap(ctx, g) {
 
   txt(ctx, `探索 ${mapPercent(level)}%   ⏱ ${formatTime(g.playTime)}`, W / 2, my + mh + 22 * S,
     { size: 12 * S, align: 'center', color: UI.inkDim });
+  const obj = g.objectiveText ? g.objectiveText() : '';
+  if (obj) txt(ctx, '▶ ' + obj, W / 2, my + mh + 44 * S, { size: 13 * S, align: 'center', color: UI.gold });
+  // 凡例
+  const leg = [['#e8c46a', '村'], ['#d65c4e', 'ほら穴'], ['#7fb8d4', 'クリア'], ['#b57ad4', '村人'], ['#e6c2f5', '門']];
+  let lx = W / 2 - (leg.length * 56 * S) / 2;
+  for (const [c, label] of leg) {
+    ctx.fillStyle = c;
+    ctx.fillRect(lx, my + mh + 70 * S, 6 * S, 6 * S);
+    txt(ctx, label, lx + 11 * S, my + mh + 68 * S, { size: 10 * S, color: UI.inkDim, outline: false });
+    lx += 56 * S;
+  }
   txt(ctx, 'タップでとじる', W / 2, H - ui.padBottom - 34 * S, { size: 12 * S, align: 'center', color: UI.inkDim });
 }
 

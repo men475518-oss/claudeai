@@ -188,22 +188,7 @@ export class Player extends Entity {
     this.comboT = Math.max(0, this.comboT - dt);
     this.spawnGuard = Math.max(0, this.spawnGuard - dt);
 
-    // --- 攻撃入力 ---
-    if (g.canAct) {
-      if (inp.aPressed && this.attack <= 0 && this.spin <= 0 && this.cooldown <= 0) {
-        this.startAttack(false);
-      }
-      // 溜め
-      if (inp.a && this.attack <= 0 && this.spin <= 0) {
-        this.charge += dt;
-        if (this.charge > PLAYER.chargeTime && this.charge - dt <= PLAYER.chargeTime) sfx('magic');
-      }
-      if (inp.aReleased) {
-        if (this.charge > PLAYER.chargeTime && this.spin <= 0) this.startAttack(true);
-        this.charge = 0;
-      }
-      if (!inp.a) this.charge = 0;
-    }
+    // 攻撃・ため・道具の入力は main.js の simulate() が一括で扱う
 
     if (this.attack > 0) this.attack = Math.max(0, this.attack - dt);
     if (this.spin > 0) this.spin = Math.max(0, this.spin - dt);
@@ -317,12 +302,12 @@ function drawSword(ctx, p) {
 // 敵
 // ---------------------------------------------------------------------------
 export const ENEMY_DEF = {
-  slime:    { hp: 4,  speed: 26, dmg: 1, spr: 'slime',    ai: 'hop',    coin: [1, 3],  hw: 6, hh: 4, shadow: 6, name: 'スライム' },
-  bat:      { hp: 3,  speed: 52, dmg: 1, spr: 'bat',      ai: 'flyer',  coin: [1, 2],  hw: 5, hh: 4, shadow: 4, fly: 1, name: 'コウモリ' },
-  skeleton: { hp: 7,  speed: 32, dmg: 2, spr: 'skeleton', ai: 'chaser', coin: [2, 5],  hw: 5, hh: 4, shadow: 5, name: 'がいこつ' },
-  spore:    { hp: 6,  speed: 0,  dmg: 1, spr: 'spore',    ai: 'turret', coin: [2, 4],  hw: 6, hh: 4, shadow: 6, name: 'キノコ' },
-  wolf:     { hp: 6,  speed: 42, dmg: 2, spr: 'wolf',     ai: 'dasher', coin: [2, 5],  hw: 7, hh: 4, shadow: 7, name: 'やまいぬ' },
-  warden:   { hp: 46, speed: 26, dmg: 2, spr: 'warden',   ai: 'aiBoss',   coin: [30, 40], hw: 12, hh: 8, shadow: 13, scale: 2, boss: 1, name: '根の番人' },
+  slime:    { hp: 4,  speed: 26, dmg: 1, spr: 'slime',    ai: 'hop',    coin: [2, 4],  hw: 6, hh: 4, shadow: 6, name: 'スライム' },
+  bat:      { hp: 3,  speed: 52, dmg: 1, spr: 'bat',      ai: 'flyer',  coin: [2, 4],  hw: 5, hh: 4, shadow: 4, fly: 1, name: 'コウモリ' },
+  skeleton: { hp: 7,  speed: 32, dmg: 2, spr: 'skeleton', ai: 'chaser', coin: [4, 8],  hw: 5, hh: 4, shadow: 5, name: 'がいこつ' },
+  spore:    { hp: 6,  speed: 0,  dmg: 1, spr: 'spore',    ai: 'turret', coin: [3, 6],  hw: 6, hh: 4, shadow: 6, name: 'キノコ' },
+  wolf:     { hp: 6,  speed: 42, dmg: 2, spr: 'wolf',     ai: 'dasher', coin: [4, 8],  hw: 7, hh: 4, shadow: 7, name: 'やまいぬ' },
+  warden:   { hp: 46, speed: 26, dmg: 2, spr: 'warden',   ai: 'aiBoss',   coin: [60, 90], hw: 12, hh: 8, shadow: 13, scale: 2, boss: 1, name: '根の番人' },
 };
 
 export class Enemy extends Entity {
@@ -376,7 +361,9 @@ export class Enemy extends Entity {
     FX.shake(this.boss ? 7 : 2, this.boss ? 0.5 : 0.16);
     sfx(this.boss ? 'bomb' : 'die');
     const n = rng.irange(this.def.coin[0], this.def.coin[1]);
-    for (let i = 0; i < n; i++) g.spawnPickup(this.x, this.y, 'coin');
+    const drops = Math.min(n, 8);
+    const per = Math.ceil(n / drops);
+    for (let i = 0; i < drops; i++) g.spawnPickup(this.x, this.y, 'coin', per);
     if (rng() < (this.boss ? 1 : 0.16)) g.spawnPickup(this.x, this.y, 'heart');
     if (this.boss) {
       for (let i = 0; i < 3; i++) g.spawnPickup(this.x, this.y, 'heart');
@@ -778,7 +765,7 @@ export class Bomb extends Entity {
       if (dist(e.x, e.y, this.x, this.y) < R + e.hw) e.hurt(g, this.dmg, this.x, this.y, 200);
     }
     if (dist(g.player.x, g.player.y, this.x, this.y) < R * 0.8) g.player.hurt(g, 1, this.x, this.y);
-    g.blastTiles(this.x, this.y, 1);
+    g.blastTiles(this.x, this.y, 2);
   }
   draw(ctx) {
     this.drawShadow(ctx);

@@ -154,6 +154,41 @@ export function generateDungeon(def, playerLevel = 1) {
     }
   }
 
+  // --- ひび割れた壁のむこうの隠し部屋（爆弾で開ける）---
+  const secrets = [];
+  for (const r of rng.shuffle(mid.slice())) {
+    if (secrets.length >= 2) break;
+    const sides = rng.shuffle([[0, -1], [0, 1], [-1, 0], [1, 0]]);
+    let placed = false;
+    for (const [dx, dy] of sides) {
+      if (placed) break;
+      const ax = r.cx + dx * ((r.w >> 1) + 3);
+      const ay = r.cy + dy * ((r.h >> 1) + 3);
+      if (ax < 3 || ay < 3 || ax > W - 5 || ay > H - 5) continue;
+      // 掘る先が全部 壁であること（他の部屋を壊さない）
+      let clear = true;
+      for (let y = ay - 1; y <= ay + 1 && clear; y++)
+        for (let x = ax - 1; x <= ax + 1 && clear; x++)
+          if (lv.g(x, y) !== theme.wall) clear = false;
+      if (!clear) continue;
+      // 部屋から通路を掘り、境目に ひび割れ を置く
+      const cx0 = r.cx + dx * ((r.w >> 1) - 1), cy0 = r.cy + dy * ((r.h >> 1) - 1);
+      let x = cx0, y = cy0, guard = 0, crackAt = null;
+      while ((x !== ax || y !== ay) && guard++ < 40) {
+        if (lv.g(x, y) === theme.wall && !crackAt) crackAt = { x, y };
+        lv.setG(x, y, theme.floor);
+        lv.setO(x, y, O.NONE);
+        if (x !== ax) x += Math.sign(ax - x); else y += Math.sign(ay - y);
+      }
+      carveRoom(lv, { x: ax - 1, y: ay - 1, w: 3, h: 3 }, theme.floor);
+      if (crackAt) { lv.setO(crackAt.x, crackAt.y, O.CRACK); secrets.push(crackAt); }
+      lv.setO(ax, ay, O.CHEST);
+      chests.push({ x: ax, y: ay, loot: rng() < 0.5 ? 'heart' : 'coins' });
+      lv.setO(ax - 1, ay - 1, O.TORCH);
+      placed = true;
+    }
+  }
+
   // ボス
   const boss = { x: bossRoom.cx, y: bossRoom.y + 2, kind: theme.boss, level: def.level, boss: true };
   const relicPos = { x: bossRoom.cx, y: bossRoom.cy + Math.max(1, (bossRoom.h >> 1) - 2) };
@@ -164,5 +199,5 @@ export function generateDungeon(def, playerLevel = 1) {
       if (lv.g(x, y) === theme.floor && rng() < 0.012 && lv.o(x, y) === O.NONE)
         lv.setO(x, y, O.POT);
 
-  return { level: lv, spawn, exitTile, rooms, bossRoom, boss, relicPos, enemies, chests, doorPos, theme: def.theme };
+  return { level: lv, spawn, exitTile, rooms, bossRoom, boss, relicPos, enemies, chests, doorPos, secrets, theme: def.theme };
 }

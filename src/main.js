@@ -43,6 +43,7 @@ const g = {
   autoSaveT: 0,
 };
 window.__game = g;
+g.view = R.view;          // デバッグ／自動テスト用に表示情報を公開
 
 // --- ヘルパ（entities / render から呼ばれる）--------------------------------
 g.drawList = function () {
@@ -69,18 +70,19 @@ g.spawnProjectile = function (x, y, angle, speed, dmg, kind, friendly = false) {
 };
 g.collect = function (p) {
   const pl = g.player;
-  if (p.kind === 'coin') { pl.coins += 1; sfx('coin'); }
+  if (p.kind === 'coin') { pl.coins += p.amount || 1; sfx('coin'); }
   else if (p.kind === 'heart') { pl.heal(2); sfx('heart'); }
   else if (p.kind === 'key') { pl.keys++; sfx('gem'); UIx.toast('カギ を てにいれた'); }
-  else if (p.kind === 'gem') { pl.gems++; pl.coins += 10; sfx('gem'); }
+  else if (p.kind === 'gem') { pl.gems++; pl.coins += 25; sfx('gem'); UIx.toast('宝石！ +25 コイン'); }
   else if (p.kind === 'bomb') { pl.bombs++; sfx('coin'); }
   else if (p.kind === 'potion') { pl.potions++; sfx('coin'); }
   else if (p.kind === 'star') { pl.heal(99); sfx('levelup'); }
 };
-g.blastTiles = function (px, py, r) {
+g.blastTiles = function (px, py, r = 2) {
   const cx = Math.floor(px / TILE), cy = Math.floor(py / TILE);
   for (let y = cy - r; y <= cy + r; y++)
     for (let x = cx - r; x <= cx + r; x++) {
+      if (Math.hypot(x - cx, y - cy) > r + 0.2) continue;
       const id = g.level.o(x, y);
       if (!id) continue;
       const def = OBJ_DEF[id];
@@ -154,7 +156,15 @@ function newGame(seed) {
   enterLevel('field', g.player.x, g.player.y, false);
   g.state = 'play'; g.stateT = 0;
   UIx.invalidateMap();
-  UIx.toast('アフターグローヴ', 'まずは まわりを 見てまわろう');
+  UIx.openDialog({
+    speaker: 'アフターグローヴ',
+    text: [
+      'まもの に おそわれ、\n村のみんなは 散りぢりに なった。\nのこったのは あなた ひとり。',
+      '＜あそびかた＞\n画面を ドラッグ → 歩く\nその場で タップ → 斬る\n長押しして 離す → 回転斬り',
+      'まずは 村のまわりを 歩いて、\nとらわれた 村人を さがそう。\n檻は 斬れば こわれる。',
+    ],
+    onDone: () => UIx.toast('目標：とらわれた村人を さがす', '右上のマップで 行き先が わかる'),
+  });
 }
 
 function continueGame() {
@@ -326,13 +336,14 @@ function updateTitle(dt, t) {
     startAudio(); sfx('levelup'); newGame((Math.random() * 1e9) | 0);
   }
 
-  const { sctx } = R.getCtx();
-  sctx.setTransform(view0dpr(), 0, 0, view0dpr(), 0, 0);
-  UIx.drawTitle(sctx, g, t, canCont);
+  const sctx = R.getCtx().sctx;
   sctx.setTransform(1, 0, 0, 1, 0, 0);
+  sctx.fillStyle = '#08070c';
+  sctx.fillRect(0, 0, sctx.canvas.width, sctx.canvas.height);
+  R.beginUi();
+  UIx.drawTitle(sctx, g, t, canCont);
+  R.endUi();
 }
-
-function view0dpr() { return R.view.dpr; }
 
 let audioStarted = false;
 function startAudio() {
@@ -350,6 +361,12 @@ function pressedButtons() { return input.pressedIds; }
 // ---------------------------------------------------------------------------
 function updatePlay(dt) {
   const p = g.player;
+  // 力尽きたら 開いている UI は畳む（会話中に止まったままにならないように）
+  if (p.hp <= 0) {
+    if (UIx.dialog.active) { UIx.dialog.active = false; UIx.dialog.onDone = null; }
+    if (UIx.menu.active) { UIx.menu.active = false; UIx.menu.onClose = null; }
+    g.mapOpen = false;
+  }
   const uiBusy = UIx.dialog.active || UIx.menu.active || g.mapOpen;
   input.stickEnabled = !uiBusy && !g.transition;
   g.canAct = !uiBusy && !g.transition && p.hp > 0;
@@ -379,6 +396,9 @@ function updatePlay(dt) {
   } else {
     const L = UIx.controlLayout();
     if (UIx.ui.showControls) {
+      const order = ['bomb', 'potion'];
+      if (g.player.magic) order.push('magic');
+      if (order.length > 1) btns.push({ id: 'swap', x: L.swap.x, y: L.swap.y, r: L.swap.r });
       btns.push({ id: 'b', x: L.b.x, y: L.b.y, r: L.b.r });
       btns.push({ id: 'a', x: L.a.x, y: L.a.y, r: L.a.r });
     }
@@ -413,6 +433,7 @@ function updatePlay(dt) {
   } else {
     if (pressed.has('menu') || input.menuPressed) { openPauseMenu(); }
     else if (pressed.has('map') || input.mapPressed) { g.mapOpen = true; UIx.invalidateMap(); sfx('ui'); clearHeld(); }
+    else if (pressed.has('swap')) { cycleItem(); sfx('ui'); }
   }
 
   // --- ゲーム進行 ---
@@ -436,7 +457,7 @@ function updatePlay(dt) {
   // --- UI 描画 ---
   const { sctx } = R.getCtx();
   R.present();
-  sctx.setTransform(R.view.dpr, 0, 0, R.view.dpr, 0, 0);
+  R.beginUi();
 
   if (g.mapOpen) {
     UIx.drawMap(sctx, g);
@@ -453,7 +474,7 @@ function updatePlay(dt) {
     sctx.fillStyle = `rgba(6,4,10,${clamp(a, 0, 1)})`;
     sctx.fillRect(0, 0, R.view.cssW, R.view.cssH);
   }
-  sctx.setTransform(1, 0, 0, 1, 0, 0);
+  R.endUi();
 
   if (UIx.ui.toastT > 0) UIx.ui.toastT -= dt;
 }
@@ -462,20 +483,38 @@ function updatePlay(dt) {
 function simulate(dt) {
   const p = g.player;
 
-  // --- 攻撃・道具入力 ---
+  // --- 攻撃・ため・道具の入力（ここが唯一の入口）---
   if (g.canAct) {
     const target = findInteract();
     g.interact = target;
-    const wantAct = input.aPressed || input.gTap;
-    const wantCharge = input.gCharge;
-    if (wantAct) {
+    const idle = p.attack <= 0 && p.spin <= 0;
+
+    // 軽いタップ／Ａ押下：目の前に調べられる物があればそちら優先
+    if (input.aPressed || input.gTap) {
       if (target) doInteract(target);
-      else if (p.attack <= 0 && p.spin <= 0 && p.cooldown <= 0) p.startAttack(false);
-    } else if (wantCharge) {
-      if (p.spin <= 0 && p.attack <= 0) p.startAttack(true);
+      else if (idle && p.cooldown <= 0) p.startAttack(false);
     }
+    // 片手ジェスチャで ためきって離した
+    if (input.gCharge && idle) p.startAttack(true);
+
+    // Ａボタン長押しの「ため」（振り終わってから貯まりはじめる）
+    // ※ 離した瞬間の判定を先に見ること。あとだと charge が 0 に戻ってしまう。
+    const canSpin = p.attack <= 0 && p.spin <= 0;
+    if (input.aReleased) {
+      if (p.charge > PLAYER.chargeTime && canSpin) p.startAttack(true);
+      p.charge = 0;
+    } else if (input.a && canSpin) {
+      const before = p.charge;
+      p.charge += dt;
+      if (before <= PLAYER.chargeTime && p.charge > PLAYER.chargeTime) sfx('magic');
+    } else if (!input.a && !input.gStill) {
+      p.charge = 0;
+    }
+    // 片手ジェスチャ中は溜めゲージをキャラにも反映（きらめき表示用）
+    if (input.gStill && input.gHeld > 0 && canSpin) p.charge = input.gHeld;
+
     if (input.bPressed) useItem();
-  } else g.interact = null;
+  } else { g.interact = null; p.charge = 0; }
 
   p.update(dt, g);
 
@@ -743,9 +782,9 @@ function openChest(x, y) {
   else if (loot === 'bomb') { p.bombs += 3; msg = '爆弾 ×3'; }
   else if (loot === 'potion') { p.potions += 1; msg = 'ポーション ×1'; }
   else {
-    const n = 8 + ((Math.random() * 18) | 0);
-    for (let i = 0; i < Math.min(n, 12); i++) g.spawnPickup(x * TILE + 8, y * TILE + 8, 'coin');
-    p.coins += Math.max(0, n - 12);
+    const n = 18 + ((Math.random() * 30) | 0);
+    const drops = 8, per = Math.ceil(n / drops);
+    for (let i = 0; i < drops; i++) g.spawnPickup(x * TILE + 8, y * TILE + 8, 'coin', per);
     msg = `コイン ×${n}`;
   }
   UIx.toast(msg);
@@ -856,10 +895,10 @@ function openPauseMenu() {
   const p = g.player;
   UIx.openMenu({
     title: 'メニュー',
-    sub: `${g.level.name}  ・  ${formatTime(g.playTime)}`,
+    sub: `▶ ${g.objectiveText()}`,
     items: [
       { label: 'つづける', sub: 'ゲームにもどる', action: () => {} },
-      { label: 'マップ', sub: 'たんさく状況を みる', action: () => { g.mapOpen = true; UIx.invalidateMap(); } },
+      { label: 'マップ', sub: `${g.level.name} ・ ${formatTime(g.playTime)}`, action: () => { g.mapOpen = true; UIx.invalidateMap(); } },
       {
         label: 'どうぐ を きりかえ',
         sub: `いま：${p.item === 'bomb' ? '爆弾' : p.item === 'potion' ? 'ポーション' : '魔法'}`,
@@ -940,6 +979,7 @@ function openBuildingMenu(b) {
     case 'healer': openHealerMenu(b); break;
     case 'sage': openSageMenu(b); break;
     case 'farm': openFarmMenu(b); break;
+    case 'well': openWellMenu(b); break;
     default:
       UIx.openDialog({ speaker: b.name, text: [b.desc] });
   }
@@ -1088,6 +1128,33 @@ function openSageMenu(b) {
   });
 }
 
+function openWellMenu(b) {
+  const p = g.player;
+  UIx.openMenu({
+    title: '井戸',
+    sub: 'コインを 投げこむと なにか 起きるとか',
+    items: [
+      {
+        label: 'コインを 投げる', sub: 'なにが 起きるかは 運しだい', cost: 5, disabled: p.coins < 5,
+        action: () => {
+          p.coins -= 5;
+          const r = Math.random();
+          FX.ring(p.x, p.y - 6, { r0: 3, r1: 24, life: 0.5, color: PAL.k });
+          if (r < 0.34) { p.heal(4); sfx('heart'); UIx.toast('つめたい水で ひといき', '体力が すこし 回復した'); }
+          else if (r < 0.60) { p.coins += 20; sfx('coin'); UIx.toast('コインが かえってきた！', '+20 コイン'); }
+          else if (r < 0.78) { p.bombs += 2; sfx('buy'); UIx.toast('爆弾が ふたつ 浮いてきた'); }
+          else if (r < 0.92) { p.potions += 1; sfx('buy'); UIx.toast('ポーションが 浮いてきた'); }
+          else { sfx('error'); UIx.toast('…なにも 起きなかった'); }
+          saveGame(g);
+        },
+      },
+      { label: 'のぞきこむ', sub: '', action: () => UIx.openDialog({ speaker: '井戸', text: ['くらい水面に、\n自分の顔が うつっている。'] }) },
+      { label: 'やめる', action: () => {} },
+    ],
+    footer: `所持 ${p.coins} コイン`,
+  });
+}
+
 function openFarmMenu(b) {
   const p = g.player;
   const ready = (g.playTime - (b.lastHarvest ?? -999)) > 120;
@@ -1110,6 +1177,18 @@ function openFarmMenu(b) {
   });
 }
 
+/** いまの目標（マップとメニューに出す） */
+g.objectiveText = function () {
+  const p = g.player;
+  if (!p || !g.overworld) return '';
+  if (g.won) return 'すべて おわった。ありがとう。';
+  if (p.relics >= 3) return '東の「古い門」へ 向かおう';
+  const left = g.overworld.dungeons.filter(d => !d.cleared).length;
+  if (g.rescued === 0) return 'とらわれた村人を さがそう（檻を 斬る）';
+  if (left === 3) return 'ほら穴に もぐって 遺物を さがそう';
+  return `遺物を あつめよう（${p.relics} / 3）`;
+};
+
 // 自動テスト用の入口（ブラウザからゲーム内部を叩けるようにしておく）
 g.dev = {
   enterLevel: (...a) => enterLevel(...a),
@@ -1128,8 +1207,8 @@ function drawInteractPrompt(ctx) {
   const t = g.interact;
   if (!t || UIx.dialog.active || UIx.menu.active || !g.canAct) return;
   const S = UIx.ui.S;
-  const sx = R.view.ox + (t.x - g.camx) * R.view.scale;
-  const sy = R.view.oy + (t.y - g.camy) * R.view.scale;
+  const sx = (t.x - g.camx) * R.view.scale;
+  const sy = (t.y - g.camy) * R.view.scale;
   const bob = Math.sin(performance.now() / 220) * 3 * S;
   ctx.save();
   ctx.globalAlpha = 0.95;
@@ -1149,10 +1228,10 @@ function updateGameOver(dt) {
   R.drawScene(g);
   R.present();
   const { sctx } = R.getCtx();
-  sctx.setTransform(R.view.dpr, 0, 0, R.view.dpr, 0, 0);
+  R.beginUi();
   setButtons(UIx.gameOverButtons());
   UIx.drawGameOver(sctx, g, g.stateT);
-  sctx.setTransform(1, 0, 0, 1, 0, 0);
+  R.endUi();
 
   const pressed = pressedButtons();
   if (g.stateT > 1.2 && (pressed.has('revive') || input.aPressed)) {
@@ -1175,9 +1254,9 @@ function updateEnding(dt) {
   const { sctx } = R.getCtx();
   R.drawScene(g);
   R.present();
-  sctx.setTransform(R.view.dpr, 0, 0, R.view.dpr, 0, 0);
+  R.beginUi();
   UIx.drawEnding(sctx, g, g.stateT);
-  sctx.setTransform(1, 0, 0, 1, 0, 0);
+  R.endUi();
   setButtons([]);
   if (g.stateT > 2.5 && (input.taps.length || input.aPressed)) {
     g.state = 'title'; g.stateT = 0;

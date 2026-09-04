@@ -2,6 +2,7 @@
 // input.js — 片手操作用の入力（フローティング仮想スティック＋ボタン＋キーボード）
 // ---------------------------------------------------------------------------
 import { clamp } from './util.js';
+import { view } from './render.js';
 
 const STICK_MAX = 34;        // CSS px。ここまで倒すと最大速度
 const STICK_DEAD = 5;
@@ -52,7 +53,8 @@ function hitButton(x, y) {
 
 function localPos(e) {
   const r = canvasEl.getBoundingClientRect();
-  return { x: e.clientX - r.left, y: e.clientY - r.top };
+  // 座標系は「ゲーム領域の左上が原点」に揃える（横長画面の黒帯ぶんを引く）
+  return { x: e.clientX - r.left - view.ox, y: e.clientY - r.top - view.oy };
 }
 
 function onDown(e) {
@@ -67,9 +69,8 @@ function onDown(e) {
     input.anyPressed = true;
     return;
   }
-  // スティックは画面下 60%・左 70% の広いゾーンならどこでも起点になる
-  const r = canvasEl.getBoundingClientRect();
-  if (input.stickEnabled && !input.stick.active && p.y > r.height * 0.34) {
+  // スティックは画面下 2/3 のどこからでも出せる
+  if (input.stickEnabled && !input.stick.active && p.y > view.cssH * 0.34) {
     input.stick.active = true;
     input.stick.id = e.pointerId;
     input.stick.ox = p.x; input.stick.oy = p.y;
@@ -200,8 +201,9 @@ export function updateInput(dt) {
   // --- ボタン ---
   let keyA = false, keyB = false;
   for (const k of keys) { if (KEY_A.has(k)) keyA = true; if (KEY_B.has(k)) keyB = true; }
-  const aNow = touchA || keyA;
-  const bNow = touchB || keyB;
+  // 1 フレームより短いタップも取りこぼさないよう、押下は必ず 1 度は拾う
+  const aNow = touchA || keyA || pressedThisFrame.has('a');
+  const bNow = touchB || keyB || pressedThisFrame.has('b');
   input.aPressed = aNow && !prevA;
   input.aReleased = !aNow && prevA;
   input.bPressed = bNow && !prevB;

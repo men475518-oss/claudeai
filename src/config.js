@@ -7,7 +7,7 @@ export const TILE = 16;
 /** 論理解像度（縦持ち）。横は固定、縦は端末のアスペクト比から決める */
 export const VIEW_W = 176;          // 11 タイル
 export const VIEW_H_MIN = 240;
-export const VIEW_H_MAX = 340;
+export const VIEW_H_MAX = 430;   // 縦長端末でも画面いっぱいに描けるように
 
 export const SAVE_KEY = 'aftergrove.save.v1';
 
@@ -17,7 +17,7 @@ export const WORLD_H = 220;
 
 /** 主人公のパラメータ */
 export const PLAYER = {
-  speed: 52,            // px/秒
+  speed: 58,            // px/秒
   runMul: 1.0,
   hitW: 9,              // 当たり判定（横）
   hitH: 7,              // 当たり判定（縦・足元）

@@ -10,8 +10,10 @@ import * as FX from './fx.js';
 export const view = {
   w: VIEW_W, h: 300,          // 論理解像度
   scale: 2,                   // 表示倍率
-  ox: 0, oy: 0,               // 表示オフセット（CSS px）
-  cssW: 0, cssH: 0, dpr: 1,
+  ox: 0, oy: 0,               // ゲーム領域の左上（ウィンドウ内の CSS px）
+  cssW: 0, cssH: 0,           // ゲーム領域の大きさ（CSS px）＝ UI の座標系
+  winW: 0, winH: 0,           // ウィンドウ全体
+  dpr: 1,
 };
 
 export const cam = { x: 0, y: 0, tx: 0, ty: 0 };
@@ -31,22 +33,25 @@ export function getCtx() { return { sctx, wctx, screen, world }; }
 
 export function resize() {
   const dpr = Math.min(window.devicePixelRatio || 1, 3);
-  const cssW = window.innerWidth, cssH = window.innerHeight;
-  view.cssW = cssW; view.cssH = cssH; view.dpr = dpr;
+  const winW = window.innerWidth, winH = window.innerHeight;
+  view.winW = winW; view.winH = winH; view.dpr = dpr;
 
-  screen.style.width = cssW + 'px';
-  screen.style.height = cssH + 'px';
-  screen.width = Math.round(cssW * dpr);
-  screen.height = Math.round(cssH * dpr);
+  screen.style.width = winW + 'px';
+  screen.style.height = winH + 'px';
+  screen.width = Math.round(winW * dpr);
+  screen.height = Math.round(winH * dpr);
   sctx.imageSmoothingEnabled = false;
 
-  // 論理解像度：横幅は固定、縦は端末比率に合わせる
-  const scale = Math.max(1, cssW / VIEW_W);
+  // 論理解像度：横幅は固定。縦は端末比率に合わせるが、
+  // 横長画面では縦がはみ出さないよう倍率のほうを下げる（左右に黒帯）。
+  const scale = Math.min(winW / VIEW_W, winH / VIEW_H_MIN);
   view.w = VIEW_W;
-  view.h = Math.round(clamp(cssH / scale, VIEW_H_MIN, VIEW_H_MAX));
-  view.scale = cssW / view.w;
-  view.ox = 0;
-  view.oy = (cssH - view.h * view.scale) / 2;
+  view.h = Math.round(clamp(winH / scale, VIEW_H_MIN, VIEW_H_MAX));
+  view.scale = scale;
+  view.cssW = view.w * scale;
+  view.cssH = view.h * scale;
+  view.ox = Math.round((winW - view.cssW) / 2);
+  view.oy = Math.round((winH - view.cssH) / 2);
 
   if (!world || world.width !== view.w || world.height !== view.h) {
     world = makeCanvas(view.w, view.h);
@@ -57,14 +62,21 @@ export function resize() {
   }
 }
 
-/** 論理座標 → CSS px */
+/** 論理座標 → ゲーム領域内の CSS px */
 export function toScreen(x, y) {
-  return { x: view.ox + x * view.scale, y: view.oy + y * view.scale };
+  return { x: x * view.scale, y: y * view.scale };
 }
-/** CSS px → 論理座標 */
+/** ゲーム領域内の CSS px → 論理座標 */
 export function toWorldPx(x, y) {
-  return { x: (x - view.ox) / view.scale, y: (y - view.oy) / view.scale };
+  return { x: x / view.scale, y: y / view.scale };
 }
+
+/** UI 描画用の座標系（ゲーム領域の左上が原点）に切り替える */
+export function beginUi() {
+  sctx.setTransform(view.dpr, 0, 0, view.dpr, view.ox * view.dpr, view.oy * view.dpr);
+  return sctx;
+}
+export function endUi() { sctx.setTransform(1, 0, 0, 1, 0, 0); }
 
 export function snapCamera(target, level) {
   cam.tx = target.x; cam.ty = target.y;
@@ -434,11 +446,12 @@ function drawLight(g, camx, camy) {
 
 /** 論理画面を実画面へ拡大転送 */
 export function present() {
+  sctx.setTransform(1, 0, 0, 1, 0, 0);
   sctx.fillStyle = '#08070c';
   sctx.fillRect(0, 0, screen.width, screen.height);
   const d = view.dpr;
   sctx.imageSmoothingEnabled = false;
   sctx.drawImage(world, 0, 0, view.w, view.h,
     Math.round(view.ox * d), Math.round(view.oy * d),
-    Math.round(view.w * view.scale * d), Math.round(view.h * view.scale * d));
+    Math.round(view.cssW * d), Math.round(view.cssH * d));
 }
