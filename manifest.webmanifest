@@ -1,0 +1,13 @@
+{
+  "name": "AFTERGROVE — アフターグローヴ",
+  "short_name": "AFTERGROVE",
+  "description": "縦持ち・片手操作で遊べるドット絵の探索アクションRPG。",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#0a0910",
+  "theme_color": "#12101c",
+  "icons": [
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

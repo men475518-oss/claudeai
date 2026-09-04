@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>AFTERGROVE — 片手で遊ぶ小さな冒険</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#12101c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="縦持ち・片手操作で遊べるドット絵の探索アクションRPG。">
+<link rel="manifest" href="./manifest.webmanifest">
+<style>
+  :root { color-scheme: dark; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body {
+    width:100%; height:100%; overflow:hidden; background:#0a0910;
+    touch-action:none; -webkit-user-select:none; user-select:none;
+    -webkit-tap-highlight-color:transparent; overscroll-behavior:none;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  #stage { position:fixed; inset:0; display:grid; place-items:center; background:#0a0910; }
+  #screen {
+    display:block; image-rendering:pixelated; image-rendering:crisp-edges;
+    touch-action:none; background:#12101c;
+  }
+  #boot {
+    position:fixed; inset:0; display:grid; place-items:center; gap:12px;
+    background:#0a0910; color:#d8cfa8; font-size:13px; letter-spacing:.14em; z-index:10;
+    transition:opacity .35s ease;
+  }
+  #boot.gone { opacity:0; pointer-events:none; }
+  #boot b { display:block; font-size:19px; letter-spacing:.3em; color:#e8c46a; margin-bottom:6px; }
+  #boot small { display:block; opacity:.5; letter-spacing:.1em; margin-top:10px; font-size:11px; }
+  noscript { color:#d8cfa8; }
+</style>
+</head>
+<body>
+  <div id="stage"><canvas id="screen"></canvas></div>
+  <div id="boot"><div style="text-align:center">
+    <b>AFTERGROVE</b>
+    よみこみちゅう…
+    <small>タップしてはじめる</small>
+  </div></div>
+  <noscript>このゲームを遊ぶには JavaScript を有効にしてください。</noscript>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
