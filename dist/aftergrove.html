@@ -4215,20 +4215,21 @@ function drawHud(ctx, g) {
     sprite(ctx, SPR.gem, ix, iy, 2 * S);
     txt(ctx, `${p.relics}/3`, ix + 18 * S, iy + 2 * S, { size: 13 * S, color: PAL.C });
   }
+  const hudBottom = iy + 20 * S;
 
   // 右上ボタン（メニュー・マップ）
   const hb = hudButtonLayout();
   drawIconButton(ctx, hb.menu.x, hb.menu.y, hb.menu.icon, 'menu');
   drawIconButton(ctx, hb.map.x, hb.map.y, hb.map.icon, 'map');
 
-  // ボス HP
+  // ボス HP（左上のステータス表示の下に置く。かぶらないように）
   const boss = g.enemies.find(e => e.boss && !e.dead && e.aggro);
   if (boss) {
-    const bw = Math.min(view.cssW - 80 * S, 260 * S), bh = 12 * S;
-    const bxx = (W - bw) / 2, byy = hudButtonLayout().menu.y - 12 * S;
-    panel(ctx, bxx - 4 * S, byy - 4 * S, bw + 8 * S, bh + 22 * S, { r: 6 * S, inner: false });
-    txt(ctx, boss.def.name, bxx + bw / 2, byy - 1 * S, { size: 11 * S, align: 'center', color: UI.gold, outline: false });
-    const yy = byy + 16 * S;
+    const bw = Math.min(W - 40 * S, 250 * S), bh = 11 * S;
+    const bxx = (W - bw) / 2, byy = hudBottom + 10 * S;
+    panel(ctx, bxx - 5 * S, byy - 3 * S, bw + 10 * S, bh + 21 * S, { r: 6 * S, inner: false });
+    txt(ctx, boss.def.name, bxx + bw / 2, byy, { size: 10.5 * S, align: 'center', color: UI.gold, outline: false });
+    const yy = byy + 15 * S;
     ctx.fillStyle = '#2a1420'; ctx.fillRect(bxx, yy, bw, bh);
     ctx.fillStyle = UI.red;
     ctx.fillRect(bxx, yy, bw * clamp(boss.hp / boss.maxHp, 0, 1), bh);
