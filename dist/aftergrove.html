@@ -4217,15 +4217,15 @@ function drawHud(ctx, g) {
   }
 
   // 右上ボタン（メニュー・マップ）
-  const bx = W - 26 * S, by = top + 12 * S;
-  drawIconButton(ctx, bx, by, 17 * S, 'menu');
-  drawIconButton(ctx, bx - 42 * S, by, 17 * S, 'map');
+  const hb = hudButtonLayout();
+  drawIconButton(ctx, hb.menu.x, hb.menu.y, hb.menu.icon, 'menu');
+  drawIconButton(ctx, hb.map.x, hb.map.y, hb.map.icon, 'map');
 
   // ボス HP
   const boss = g.enemies.find(e => e.boss && !e.dead && e.aggro);
   if (boss) {
     const bw = Math.min(view.cssW - 80 * S, 260 * S), bh = 12 * S;
-    const bxx = (W - bw) / 2, byy = top + 6 * S;
+    const bxx = (W - bw) / 2, byy = hudButtonLayout().menu.y - 12 * S;
     panel(ctx, bxx - 4 * S, byy - 4 * S, bw + 8 * S, bh + 22 * S, { r: 6 * S, inner: false });
     txt(ctx, boss.def.name, bxx + bw / 2, byy - 1 * S, { size: 11 * S, align: 'center', color: UI.gold, outline: false });
     const yy = byy + 16 * S;
@@ -4282,6 +4282,17 @@ function drawIconButton(ctx, cx, cy, r, kind) {
 }
 
 // --- タッチ操作の表示 ------------------------------------------------------
+
+/** 右上のアイコンボタン。当たり判定が画面外へはみ出さないよう内側へ寄せる。 */
+function hudButtonLayout() {
+  const S = ui.S, W = view.cssW;
+  const r = 21 * S;                       // 指で押しやすい判定サイズ
+  const y = Math.max(r + 2 * S, ui.padTop + 12 * S);
+  return {
+    menu: { x: Math.min(W - r - 2 * S, W - 26 * S), y, r, icon: 17 * S },
+    map: { x: Math.min(W - r - 2 * S, W - 26 * S) - 42 * S, y, r, icon: 17 * S },
+  };
+}
 
 function controlLayout() {
   const S = ui.S, W = view.cssW, H = view.cssH;
@@ -4632,7 +4643,7 @@ function drawEnding(ctx, g, t) {
   txt(ctx, 'タップでタイトルへ', W / 2, H - ui.padBottom - 50 * S, { size: 12 * S, align: 'center', color: UI.inkDim });
 }
 
-return { ui, layoutUi, txt, roundRect, panel, wrapText, toast, dialog, openDialog, closeDialog, updateDialog, registerDialogButtons, drawDialog, menu, openMenu, closeMenu, registerMenuButtons, drawMenu, drawHud, controlLayout, drawTouchControls, invalidateMap, drawMap, drawTitle, titleButtons, drawGameOver, gameOverButtons, drawEnding };
+return { ui, layoutUi, txt, roundRect, panel, wrapText, toast, dialog, openDialog, closeDialog, updateDialog, registerDialogButtons, drawDialog, menu, openMenu, closeMenu, registerMenuButtons, drawMenu, drawHud, hudButtonLayout, controlLayout, drawTouchControls, invalidateMap, drawMap, drawTitle, titleButtons, drawGameOver, gameOverButtons, drawEnding };
 })();
 
 const __M_save = (function () {
@@ -5146,9 +5157,9 @@ function updatePlay(dt) {
       btns.push({ id: 'b', x: L.b.x, y: L.b.y, r: L.b.r });
       btns.push({ id: 'a', x: L.a.x, y: L.a.y, r: L.a.r });
     }
-    const S = UIx.ui.S;
-    btns.push({ id: 'menu', x: R.view.cssW - 26 * S, y: UIx.ui.padTop + 12 * S, r: 22 * S });
-    btns.push({ id: 'map', x: R.view.cssW - 68 * S, y: UIx.ui.padTop + 12 * S, r: 22 * S });
+    const hb = UIx.hudButtonLayout();
+    btns.push({ id: 'menu', x: hb.menu.x, y: hb.menu.y, r: hb.menu.r });
+    btns.push({ id: 'map', x: hb.map.x, y: hb.map.y, r: hb.map.r });
   }
   setButtons(btns);
   const pressed = pressedButtons();
@@ -5934,6 +5945,7 @@ g.objectiveText = function () {
 };
 
 // 自動テスト用の入口（ブラウザからゲーム内部を叩けるようにしておく）
+g.ui = UIx;
 g.dev = {
   enterLevel: (...a) => enterLevel(...a),
   damageObject: (...a) => damageObject(...a),

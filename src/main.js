@@ -402,9 +402,9 @@ function updatePlay(dt) {
       btns.push({ id: 'b', x: L.b.x, y: L.b.y, r: L.b.r });
       btns.push({ id: 'a', x: L.a.x, y: L.a.y, r: L.a.r });
     }
-    const S = UIx.ui.S;
-    btns.push({ id: 'menu', x: R.view.cssW - 26 * S, y: UIx.ui.padTop + 12 * S, r: 22 * S });
-    btns.push({ id: 'map', x: R.view.cssW - 68 * S, y: UIx.ui.padTop + 12 * S, r: 22 * S });
+    const hb = UIx.hudButtonLayout();
+    btns.push({ id: 'menu', x: hb.menu.x, y: hb.menu.y, r: hb.menu.r });
+    btns.push({ id: 'map', x: hb.map.x, y: hb.map.y, r: hb.map.r });
   }
   setButtons(btns);
   const pressed = pressedButtons();
@@ -1190,6 +1190,7 @@ g.objectiveText = function () {
 };
 
 // 自動テスト用の入口（ブラウザからゲーム内部を叩けるようにしておく）
+g.ui = UIx;
 g.dev = {
   enterLevel: (...a) => enterLevel(...a),
   damageObject: (...a) => damageObject(...a),

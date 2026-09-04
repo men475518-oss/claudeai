@@ -364,15 +364,15 @@ export function drawHud(ctx, g) {
   }
 
   // 右上ボタン（メニュー・マップ）
-  const bx = W - 26 * S, by = top + 12 * S;
-  drawIconButton(ctx, bx, by, 17 * S, 'menu');
-  drawIconButton(ctx, bx - 42 * S, by, 17 * S, 'map');
+  const hb = hudButtonLayout();
+  drawIconButton(ctx, hb.menu.x, hb.menu.y, hb.menu.icon, 'menu');
+  drawIconButton(ctx, hb.map.x, hb.map.y, hb.map.icon, 'map');
 
   // ボス HP
   const boss = g.enemies.find(e => e.boss && !e.dead && e.aggro);
   if (boss) {
     const bw = Math.min(view.cssW - 80 * S, 260 * S), bh = 12 * S;
-    const bxx = (W - bw) / 2, byy = top + 6 * S;
+    const bxx = (W - bw) / 2, byy = hudButtonLayout().menu.y - 12 * S;
     panel(ctx, bxx - 4 * S, byy - 4 * S, bw + 8 * S, bh + 22 * S, { r: 6 * S, inner: false });
     txt(ctx, boss.def.name, bxx + bw / 2, byy - 1 * S, { size: 11 * S, align: 'center', color: UI.gold, outline: false });
     const yy = byy + 16 * S;
@@ -429,6 +429,17 @@ function drawIconButton(ctx, cx, cy, r, kind) {
 }
 
 // --- タッチ操作の表示 ------------------------------------------------------
+
+/** 右上のアイコンボタン。当たり判定が画面外へはみ出さないよう内側へ寄せる。 */
+export function hudButtonLayout() {
+  const S = ui.S, W = view.cssW;
+  const r = 21 * S;                       // 指で押しやすい判定サイズ
+  const y = Math.max(r + 2 * S, ui.padTop + 12 * S);
+  return {
+    menu: { x: Math.min(W - r - 2 * S, W - 26 * S), y, r, icon: 17 * S },
+    map: { x: Math.min(W - r - 2 * S, W - 26 * S) - 42 * S, y, r, icon: 17 * S },
+  };
+}
 
 export function controlLayout() {
   const S = ui.S, W = view.cssW, H = view.cssH;
