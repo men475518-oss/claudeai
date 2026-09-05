@@ -6,7 +6,10 @@ import { view } from './render.js';
 
 const STICK_MAX = 34;        // CSS px。ここまで倒すと最大速度
 const STICK_DEAD = 5;
-const CHARGE_HOLD = 0.42;    // その場でこれ以上押し続けたら「ため」
+const CHARGE_HOLD = 0.45;    // その場でこれ以上押し続けたら「ため」
+const TAP_SLOP = 22;         // これくらい 指がぶれても タップとみなす
+const TAP_SLOP_FAST = 44;    // 速いタップなら もっとぶれてよい
+const TAP_TIME = 0.60;       // ゆっくりのタップも 拾う
 const SWIPE_DIST = 42;       // この距離を
 const SWIPE_TIME = 0.13;     // この時間内に動かしたら「はらい」＝ローリング
 const SWIPE_COOL = 0.34;
@@ -133,10 +136,11 @@ function onUp(e) {
     input.stick.active = false;
     input.stick.id = -1;
     const held = (performance.now() - (rec.t0 || 0)) / 1000;
-    if ((rec.far || 0) < 14) {
-      if (input.gHeld >= CHARGE_HOLD) gestureCharge = true;
-      else if (held < 0.45) gestureTap = true;
-    }
+    const far = rec.far || 0;
+    // 指は かならず すこし ぶれる。ぶれても タップとして 拾う。
+    if (far < TAP_SLOP && input.gHeld >= CHARGE_HOLD) gestureCharge = true;
+    else if (far < TAP_SLOP && held < TAP_TIME) gestureTap = true;
+    else if (far < TAP_SLOP_FAST && held < 0.30) gestureTap = true;  // 速くて ぶれたタップ
     input.gHeld = 0; input.gStill = false;
   } else if (rec.role === 'btn') {
     // 同じボタンを押している別の指がなければ離す
@@ -147,8 +151,12 @@ function onUp(e) {
       if (rec.btn === 'b') touchB = false;
     }
   } else if (rec.role === 'tap') {
+    // スティックを 押さえたまま、もう一本の指で 斬れる
     const moved = Math.hypot(rec.x - rec.sx, rec.y - rec.sy);
-    if (moved < 18) input.taps.push({ x: rec.x, y: rec.y });
+    if (moved < TAP_SLOP) {
+      input.taps.push({ x: rec.x, y: rec.y });
+      gestureTap = true;
+    }
   }
 }
 
@@ -216,7 +224,7 @@ export function updateInput(dt) {
   if (input.stick.active) {
     const rec = pointers.get(input.stick.id);
     const far = rec ? (rec.far || 0) : 99;
-    if (far < 14 && len < 0.18) { input.gHeld += dt; input.gStill = true; }
+    if (far < TAP_SLOP && len < 0.25) { input.gHeld += dt; input.gStill = true; }
     else { input.gHeld = 0; input.gStill = false; }
   }
   input.gTap = gestureTap; gestureTap = false;

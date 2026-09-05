@@ -72,8 +72,8 @@ const PLAYER = {
   hitW: 9,              // 当たり判定（横）
   hitH: 7,              // 当たり判定（縦・足元）
   invuln: 0.9,          // 被弾後の無敵時間
-  attackTime: 0.28,     // 振りの長さ
-  attackCooldown: 0.10,
+  attackTime: 0.24,     // 振りの長さ（短いほど 連打が 気持ちいい）
+  attackCooldown: 0.07,
   chargeTime: 0.75,     // 溜め完了までの時間
   spinTime: 0.55,
   knockback: 120,
@@ -5998,7 +5998,10 @@ const { view } = __M_render;
 
 const STICK_MAX = 34;        // CSS px。ここまで倒すと最大速度
 const STICK_DEAD = 5;
-const CHARGE_HOLD = 0.42;    // その場でこれ以上押し続けたら「ため」
+const CHARGE_HOLD = 0.45;    // その場でこれ以上押し続けたら「ため」
+const TAP_SLOP = 22;         // これくらい 指がぶれても タップとみなす
+const TAP_SLOP_FAST = 44;    // 速いタップなら もっとぶれてよい
+const TAP_TIME = 0.60;       // ゆっくりのタップも 拾う
 const SWIPE_DIST = 42;       // この距離を
 const SWIPE_TIME = 0.13;     // この時間内に動かしたら「はらい」＝ローリング
 const SWIPE_COOL = 0.34;
@@ -6125,10 +6128,11 @@ function onUp(e) {
     input.stick.active = false;
     input.stick.id = -1;
     const held = (performance.now() - (rec.t0 || 0)) / 1000;
-    if ((rec.far || 0) < 14) {
-      if (input.gHeld >= CHARGE_HOLD) gestureCharge = true;
-      else if (held < 0.45) gestureTap = true;
-    }
+    const far = rec.far || 0;
+    // 指は かならず すこし ぶれる。ぶれても タップとして 拾う。
+    if (far < TAP_SLOP && input.gHeld >= CHARGE_HOLD) gestureCharge = true;
+    else if (far < TAP_SLOP && held < TAP_TIME) gestureTap = true;
+    else if (far < TAP_SLOP_FAST && held < 0.30) gestureTap = true;  // 速くて ぶれたタップ
     input.gHeld = 0; input.gStill = false;
   } else if (rec.role === 'btn') {
     // 同じボタンを押している別の指がなければ離す
@@ -6139,8 +6143,12 @@ function onUp(e) {
       if (rec.btn === 'b') touchB = false;
     }
   } else if (rec.role === 'tap') {
+    // スティックを 押さえたまま、もう一本の指で 斬れる
     const moved = Math.hypot(rec.x - rec.sx, rec.y - rec.sy);
-    if (moved < 18) input.taps.push({ x: rec.x, y: rec.y });
+    if (moved < TAP_SLOP) {
+      input.taps.push({ x: rec.x, y: rec.y });
+      gestureTap = true;
+    }
   }
 }
 
@@ -6208,7 +6216,7 @@ function updateInput(dt) {
   if (input.stick.active) {
     const rec = pointers.get(input.stick.id);
     const far = rec ? (rec.far || 0) : 99;
-    if (far < 14 && len < 0.18) { input.gHeld += dt; input.gStill = true; }
+    if (far < TAP_SLOP && len < 0.25) { input.gHeld += dt; input.gStill = true; }
     else { input.gHeld = 0; input.gStill = false; }
   }
   input.gTap = gestureTap; gestureTap = false;
@@ -7957,6 +7965,7 @@ const g = {
   gateOpen: false, won: false,
   input,
   canAct: true,
+  atkBuf: 0,                 // タップの先行入力（秒）
   camx: 0, camy: 0,
   mapOpen: false,
   spawnTimer: 0,
@@ -8488,6 +8497,9 @@ function updatePlay(dt) {
   if (UIx.ui.toastT > 0) UIx.ui.toastT -= dt;
 }
 
+/** タップを 覚えておく時間。振りの終わりぎわの連打を 取りこぼさない。 */
+const ATK_BUFFER = 0.28;
+
 // ---------------------------------------------------------------------------
 function simulate(dt) {
   const p = g.player;
@@ -8496,13 +8508,16 @@ function simulate(dt) {
   if (g.canAct) {
     const target = findInteract();
     g.interact = target;
-    const idle = p.attack <= 0 && p.spin <= 0;
+    const idle = p.attack <= 0 && p.spin <= 0 && p.roll <= 0;
 
-    // 軽いタップ／Ａ押下：目の前に調べられる物があればそちら優先
-    if (input.aPressed || input.gTap) {
-      if (target) doInteract(target);
-      else if (idle && p.cooldown <= 0) p.startAttack(false);
-    }
+    // タップ：目の前に調べられる物があれば そちら優先。
+    // 振り終わる前のタップは すこしのあいだ 覚えておき、振れるように なったら 出す。
+    // （連打が 空ぶりするのを ふせぐ）
+    const tapped = input.aPressed || input.gTap;
+    if (tapped && target) { doInteract(target); g.atkBuf = 0; }
+    else if (tapped) g.atkBuf = ATK_BUFFER;
+    if (g.atkBuf > 0 && idle && p.cooldown <= 0) { p.startAttack(false); g.atkBuf = 0; }
+    g.atkBuf = Math.max(0, g.atkBuf - dt);
     // 片手ジェスチャで ためきって離した
     if (input.gCharge && idle) p.startAttack(true, g);
 
@@ -8529,7 +8544,7 @@ function simulate(dt) {
       p.startRoll(dx, dy);
     }
 
-  } else { g.interact = null; p.charge = 0; }
+  } else { g.interact = null; p.charge = 0; g.atkBuf = 0; }
 
   p.update(dt, g);
 

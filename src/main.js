@@ -47,6 +47,7 @@ const g = {
   gateOpen: false, won: false,
   input,
   canAct: true,
+  atkBuf: 0,                 // タップの先行入力（秒）
   camx: 0, camy: 0,
   mapOpen: false,
   spawnTimer: 0,
@@ -578,6 +579,9 @@ function updatePlay(dt) {
   if (UIx.ui.toastT > 0) UIx.ui.toastT -= dt;
 }
 
+/** タップを 覚えておく時間。振りの終わりぎわの連打を 取りこぼさない。 */
+const ATK_BUFFER = 0.28;
+
 // ---------------------------------------------------------------------------
 function simulate(dt) {
   const p = g.player;
@@ -586,13 +590,16 @@ function simulate(dt) {
   if (g.canAct) {
     const target = findInteract();
     g.interact = target;
-    const idle = p.attack <= 0 && p.spin <= 0;
+    const idle = p.attack <= 0 && p.spin <= 0 && p.roll <= 0;
 
-    // 軽いタップ／Ａ押下：目の前に調べられる物があればそちら優先
-    if (input.aPressed || input.gTap) {
-      if (target) doInteract(target);
-      else if (idle && p.cooldown <= 0) p.startAttack(false);
-    }
+    // タップ：目の前に調べられる物があれば そちら優先。
+    // 振り終わる前のタップは すこしのあいだ 覚えておき、振れるように なったら 出す。
+    // （連打が 空ぶりするのを ふせぐ）
+    const tapped = input.aPressed || input.gTap;
+    if (tapped && target) { doInteract(target); g.atkBuf = 0; }
+    else if (tapped) g.atkBuf = ATK_BUFFER;
+    if (g.atkBuf > 0 && idle && p.cooldown <= 0) { p.startAttack(false); g.atkBuf = 0; }
+    g.atkBuf = Math.max(0, g.atkBuf - dt);
     // 片手ジェスチャで ためきって離した
     if (input.gCharge && idle) p.startAttack(true, g);
 
@@ -619,7 +626,7 @@ function simulate(dt) {
       p.startRoll(dx, dy);
     }
 
-  } else { g.interact = null; p.charge = 0; }
+  } else { g.interact = null; p.charge = 0; g.atkBuf = 0; }
 
   p.update(dt, g);
 

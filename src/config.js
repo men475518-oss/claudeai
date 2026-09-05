@@ -22,8 +22,8 @@ export const PLAYER = {
   hitW: 9,              // 当たり判定（横）
   hitH: 7,              // 当たり判定（縦・足元）
   invuln: 0.9,          // 被弾後の無敵時間
-  attackTime: 0.28,     // 振りの長さ
-  attackCooldown: 0.10,
+  attackTime: 0.24,     // 振りの長さ（短いほど 連打が 気持ちいい）
+  attackCooldown: 0.07,
   chargeTime: 0.75,     // 溜め完了までの時間
   spinTime: 0.55,
   knockback: 120,

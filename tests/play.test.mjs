@@ -204,6 +204,76 @@ check('新規ゲームが はじまる', await page.evaluate(() => window.__game
     results.every(Boolean), results.map(r => (r ? '○' : '×')).join(''));
 }
 
+// --- 2a3. 指がぶれても・歩きながらでも・連打でも 剣が出る -----------------------
+{
+  // startAttack の呼ばれた回数を かぞえる
+  await page.evaluate(() => {
+    const proto = Object.getPrototypeOf(window.__game.player);
+    if (!window.__swHook) {
+      window.__swHook = proto.startAttack;
+      proto.startAttack = function (...a) { window.__sw = (window.__sw || 0) + 1; return window.__swHook.apply(this, a); };
+    }
+  });
+  const swings = async (fn) => {
+    await page.evaluate(() => {
+      const g = window.__game;
+      window.__sw = 0;
+      g.enemies.length = 0; g.npcs.length = 0;
+      g.player.attack = 0; g.player.spin = 0; g.player.cooldown = 0; g.player.roll = 0;
+    });
+    await fn();
+    await wait(420);
+    return page.evaluate(() => window.__sw);
+  };
+
+  // 指が すこし ぶれるタップ
+  const drift = await swings(async () => {
+    for (let i = 0; i < 4; i++) {
+      await page.mouse.move(195, 500); await page.mouse.down();
+      await page.mouse.move(203, 513, { steps: 4 });
+      await wait(90);
+      await page.mouse.up();
+      await wait(400);
+    }
+  });
+  check('指が ぶれても タップとして 剣が出る', drift >= 4, `${drift}/4 回`);
+
+  // 速くて 大きく ぶれるタップ
+  const fast = await swings(async () => {
+    for (let i = 0; i < 4; i++) {
+      await page.mouse.move(195, 500); await page.mouse.down();
+      await page.mouse.move(216, 521, { steps: 4 });
+      await page.mouse.up();
+      await wait(400);
+    }
+  });
+  check('速くて 大きくぶれたタップでも 剣が出る', fast >= 4, `${fast}/4 回`);
+
+  // 歩きながら もう一本の指で タップ
+  const cdp = await page.context().newCDPSession(page);
+  const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts });
+  const walking = await swings(async () => {
+    await touch('touchStart', [{ x: 120, y: 600, id: 1 }]);
+    await touch('touchMove', [{ x: 120, y: 664, id: 1 }]);
+    await wait(220);
+    for (let i = 0; i < 3; i++) {
+      await touch('touchStart', [{ x: 120, y: 664, id: 1 }, { x: 300, y: 400, id: 2 }]);
+      await wait(70);
+      await touch('touchEnd', [{ x: 120, y: 664, id: 1 }]);
+      await wait(380);
+    }
+    await touch('touchEnd', []);
+  });
+  check('歩きながら もう一本の指で タップしても 剣が出る', walking >= 3, `${walking}/3 回`);
+
+  // 振りの途中の連打も 取りこぼさない（先行入力）
+  const rapid = await swings(async () => {
+    for (let i = 0; i < 6; i++) { await page.mouse.click(195, 500); await wait(200); }
+  });
+  check('振りの途中で 連打しても 取りこぼさない', rapid >= 5, `${rapid}/6 回`);
+  await page.evaluate(() => { window.__game.enemies.length = 0; });
+}
+
 // --- 2b. 島から島へ わたる ---
 {
   const r = await page.evaluate(async () => {
