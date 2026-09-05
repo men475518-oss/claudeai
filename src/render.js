@@ -212,13 +212,18 @@ function drawDecor(ctx, id, px, py, x, y) {
     }
     ctx.globalAlpha = 1;
   } else if (id === O.CRATE) {
-    ctx.fillStyle = PAL['0']; ctx.fillRect(px + 2, py + 3, 12, 12);
-    ctx.fillStyle = PAL.e; ctx.fillRect(px + 3, py + 4, 10, 10);
-    ctx.fillStyle = PAL.f; ctx.fillRect(px + 3, py + 4, 10, 2);
-    ctx.fillStyle = PAL.d;
-    ctx.fillRect(px + 3, py + 8, 10, 1);
-    ctx.fillRect(px + 7, py + 4, 1, 10);
-    ctx.fillStyle = PAL.c; ctx.fillRect(px + 3, py + 13, 10, 1);
+    // 段ボール箱。ふたが すこし あいている
+    ctx.fillStyle = PAL['0']; ctx.fillRect(px + 1, py + 2, 14, 13);
+    ctx.fillStyle = PAL.f; ctx.fillRect(px + 2, py + 3, 12, 11);     // 前面
+    ctx.fillStyle = PAL.g; ctx.fillRect(px + 2, py + 3, 12, 4);      // ふた（上面）
+    ctx.fillStyle = PAL.e; ctx.fillRect(px + 11, py + 3, 3, 11);     // 右の影
+    ctx.fillStyle = PAL.d; ctx.fillRect(px + 2, py + 6, 12, 1);      // ふちの線
+    ctx.fillStyle = PAL.e; ctx.fillRect(px + 7, py + 3, 1, 3);       // ふたの合わせ目
+    ctx.fillStyle = PAL.x; ctx.fillRect(px + 6, py + 3, 1, 4);       // ガムテープ
+    ctx.fillStyle = PAL.w; ctx.fillRect(px + 6, py + 7, 1, 7);
+    ctx.fillStyle = PAL.d;                                            // 見え消しの字
+    ctx.fillRect(px + 3, py + 9, 5, 1); ctx.fillRect(px + 3, py + 11, 3, 1);
+    ctx.fillStyle = PAL.c; ctx.fillRect(px + 2, py + 13, 12, 1);
   } else if (id === O.LAMP) {
     ctx.fillStyle = PAL['0'];
     ctx.fillRect(px + 6, py + 2, 4, 14);

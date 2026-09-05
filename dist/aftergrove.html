@@ -289,6 +289,11 @@ const SIGNS = [
   'すばやく 指を はらうと ころがれます。\nいたく ありません。',
   '持ち物は 置いていってください。\n　　　　　　　　── 村の きまり',
   'ここから先、名前を 呼ばれても\n返事を しないこと。',
+  '段ボールの中は だいたい 手当てです。\n遠慮なく 割ってください。',
+  'ひび割れた壁の前で 画面をさわると\n爆弾を しかけます。',
+  '前から 斬っても きかない やつが います。\nうしろに まわりなさい。',
+  'ひとだまは 二つに わかれます。\nそれ以上は わかれません。たぶん。',
+  '切り株が 目をあけたら\nそれは 切り株では ありません。',
 ];
 
 const SHRINE_INTRO = [
@@ -326,6 +331,9 @@ const RESCUE_LINES = [
 /** 村人がぼんやり言うこと */
 const VILLAGER_IDLE = [
   'わたし、なんで あそこに いたんだっけ。',
+  '段ボール、ぜんぶ 開けちゃっていいよ。\nもう だれのでも ないから。',
+  'なきぼうの あと、ぬれてるでしょ。\nふまないほうが いい。',
+  '帽子の人の 小さいのが 出るらしい。\n消えたり 出たりするって。',
   '夜に なると 名前を 呼ばれるの。\n返事は しないけど。',
   '帽子の人、見た？\nわるい人じゃ ないと思う。たぶん。',
   '家が ふえると、しずけさが\nすこし 遠のく気が する。',
@@ -724,6 +732,267 @@ const WARDEN = [[
   '..0ccc0000ccc0..',
   '.0cc0......0cc0.',
   '.000........000.',
+]];
+
+// --- 追加の敵 -------------------------------------------------------------
+
+// ものまね鳥（空から急降下してくる）
+const CROW = [[
+  '................',
+  '................',
+  '................',
+  '......0000......',
+  '.....0uuuu0.....',
+  '.0000uEuuEu0000.',
+  '0uuuu0uuuu0uuuu0',
+  '0uuuuu0ss0uuuuu0',
+  '.0uuuu0uu0uuuu0.',
+  '..000uuuuuu000..',
+  '.....0uuuu0.....',
+  '......0uu0......',
+  '.....0u00u0.....',
+  '.....00..00.....',
+  '................',
+  '................',
+], [
+  '................',
+  '.00..........00.',
+  '0uu0........0uu0',
+  '0uuu0..00..0uuu0',
+  '.0uuu00uu00uuu0.',
+  '..0uu0uEuE0uu0..',
+  '...0uuuuuuuu0...',
+  '....0u0ss0u0....',
+  '....0uuuuuu0....',
+  '.....0uuuu0.....',
+  '......0uu0......',
+  '.....0u00u0.....',
+  '.....00..00.....',
+  '................',
+  '................',
+  '................',
+]];
+
+// とげまり（ころがって ぶつかってくる）
+const THORN = [[
+  '................',
+  '................',
+  '................',
+  '.......0........',
+  '...0.007000.0...',
+  '....77777777....',
+  '...0788888870...',
+  '...0709999070...',
+  '.07789999998770.',
+  '...7899999987...',
+  '...0789999870...',
+  '...0788888870...',
+  '....77777777....',
+  '...0.000700.0...',
+  '........0.......',
+  '................',
+], [
+  '................',
+  '................',
+  '................',
+  '.....0....0.....',
+  '.....070070.....',
+  '....07777770....',
+  '..007888888700..',
+  '...7709999077...',
+  '...7899999987...',
+  '...7899999987...',
+  '...7789999877...',
+  '..007888888700..',
+  '....07777770....',
+  '.....070070.....',
+  '.....0....0.....',
+  '................',
+]];
+
+// ねぼけ株（切り株のふりをして 待っている）
+const STUMP = [[
+  '................',
+  '................',
+  '................',
+  '.....000000.....',
+  '...00eeeeee00...',
+  '..0eeffffffee0..',
+  '.0eeffggggffee0.',
+  '.0eeffggggffee0.',
+  '.0eeffffffffee0.',
+  '.0eeeeeeeeeeee0.',
+  '.0dddddddddddd0.',
+  '.0dcdddddcdddd0.',
+  '.0dcdddddcdddd0.',
+  '.0dcdddddcdddd0.',
+  '.0cccccccccccc0.',
+  '..000000000000..',
+], [
+  '................',
+  '................',
+  '.....000000.....',
+  '...00eeeeee00...',
+  '..0eeffffffee0..',
+  '.0eeffggggffee0.',
+  '.0eeffffffffee0.',
+  '.0eeeeeeeeeeee0.',
+  '.0dddddddddddd0.',
+  '.0dEEddddddEEd0.',
+  '.0d0Edddddd0Ed0.',
+  '.0dddddddddddd0.',
+  '.0ddd000000ddd0.',
+  '.0dcdddddcdddd0.',
+  '.0cccccccccccc0.',
+  '..000000000000..',
+]];
+
+// ひとだま（たおすと 二つに わかれる）
+const WISP = [[
+  '................',
+  '.......00.......',
+  '......0ll0......',
+  '.....0lkkl0.....',
+  '....0lkkkkl0....',
+  '....0kkkkkk0....',
+  '...0kkjjjjkk0...',
+  '...0kj0jj0jk0...',
+  '...0kjjjjjjk0...',
+  '...0kjjjjjjk0...',
+  '....0jjiiij0....',
+  '....0jiiiij0....',
+  '.....0iiii0.....',
+  '......0ii0......',
+  '.......00.......',
+  '................',
+], [
+  '.......00.......',
+  '......0ll0......',
+  '......0ll0......',
+  '.....0lkkl0.....',
+  '....0kkkkkk0....',
+  '...0kkkkkkkk0...',
+  '...0kkjjjjkk0...',
+  '...0kj0jj0jk0...',
+  '...0kjjjjjjk0...',
+  '....0jjjjjj0....',
+  '....0jjiiij0....',
+  '.....0iiii0.....',
+  '.....0iiii0.....',
+  '......0ii0......',
+  '.......00.......',
+  '................',
+]];
+
+// こぼうし（すっと 消えて となりに 出る）
+const HATLING = [[
+  '................',
+  '................',
+  '......0000......',
+  '.....011110.....',
+  '.....011110.....',
+  '..000000000000..',
+  '.....011110.....',
+  '.....0s00s0.....',
+  '.....011110.....',
+  '....011111110...',
+  '....011111110...',
+  '....011111110...',
+  '.....0111110....',
+  '.....01..10.....',
+  '.....00..00.....',
+  '................',
+], [
+  '................',
+  '................',
+  '................',
+  '......0000......',
+  '.....011110.....',
+  '.....011110.....',
+  '..000000000000..',
+  '.....011110.....',
+  '.....0s00s0.....',
+  '.....011110.....',
+  '....011111110...',
+  '....011111110...',
+  '....011111110...',
+  '.....0111110....',
+  '.....01..10.....',
+  '.....00..00.....',
+]];
+
+// なきぼう（あるいたあとに 水たまりを のこす）
+const WEEPER = [[
+  '................',
+  '................',
+  '......0000......',
+  '.....0xxxx0.....',
+  '....0xxxxxx0....',
+  '....0x0xx0x0....',
+  '....0xxxxxx0....',
+  '....0xkxxkx0....',
+  '...0xxxxxxxx0...',
+  '..0xxxxxxxxxx0..',
+  '..0xxwwwwwwxx0..',
+  '..0xwwwwwwwwx0..',
+  '..0xwwwwwwwwx0..',
+  '...0wwwwwwww0...',
+  '....0k0..0k0....',
+  '.....0....0.....',
+], [
+  '................',
+  '................',
+  '......0000......',
+  '.....0xxxx0.....',
+  '....0xxxxxx0....',
+  '....0x0xx0x0....',
+  '....0xkxxkx0....',
+  '....0xkxxkx0....',
+  '...0xxxxxxxx0...',
+  '..0xxxxxxxxxx0..',
+  '..0xxwwwwwwxx0..',
+  '..0xwwwwwwwwx0..',
+  '..0xwwwwwwwwx0..',
+  '...0wwwwwwww0...',
+  '.....0....0.....',
+  '.....k....k.....',
+]];
+
+// たてもち（前からは きかない）
+const SHIELDER = [[
+  '................',
+  '.....000000.....',
+  '....0uuuuuu0....',
+  '....0uEuuEu0....',
+  '....0uuuuuu0....',
+  '...0vvvvvvvv0...',
+  '..0vv0wwww0vv0..',
+  '..0vv0xxxx0vv0..',
+  '..0vv0xsxx0vv0..',
+  '..0vv0xssx0vv0..',
+  '..0vv0xsxx0vv0..',
+  '..0vv0xxxx0vv0..',
+  '..0vv0wwww0vv0..',
+  '...0vv0000vv0...',
+  '...0uu0..0uu0...',
+  '...000....000...',
+], [
+  '................',
+  '.....000000.....',
+  '....0uuuuuu0....',
+  '....0uEuuEu0....',
+  '....0uuuuuu0....',
+  '...0vvvvvvvv0...',
+  '...0vvvvvvvv0...',
+  '..0vv0wwww0vv0..',
+  '..0vv0xxxx0vv0..',
+  '..0vv0xsxx0vv0..',
+  '..0vv0xssx0vv0..',
+  '..0vv0xxxx0vv0..',
+  '..0vv0wwww0vv0..',
+  '...0vv0000vv0...',
+  '...0uu0..0uu0...',
+  '...000....000...',
 ]];
 
 // --- アイテム (8x8) --------------------------------------------------------
@@ -1134,7 +1403,8 @@ function validateArt() {
       }
     });
   };
-  const c16 = { HERO_DOWN, HERO_UP, HERO_SIDE, SLIME, BAT, SKELETON, SPORE, WOLF, WARDEN };
+  const c16 = { HERO_DOWN, HERO_UP, HERO_SIDE, SLIME, BAT, SKELETON, SPORE, WOLF, WARDEN,
+    CROW, THORN, STUMP, WISP, HATLING, WEEPER, SHIELDER };
   for (const [k, frames] of Object.entries(c16)) frames.forEach((f, i) => check(`${k}#${i}`, f, 16, 16));
   const s16 = { TREE, PINE, BUSH, ROCK, CHEST, CHEST_OPEN, SIGN, CAVE, DOOR, GATE, CRYSTAL, RELIC, GRAVE, HATMAN, VENDING, SHRINE };
   for (const [k, rows] of Object.entries(s16)) check(k, rows, 16, 16);
@@ -1143,7 +1413,7 @@ function validateArt() {
   return errs;
 }
 
-return { PALETTE, HERO_DOWN, HERO_UP, HERO_SIDE, SLIME, BAT, SKELETON, SPORE, WOLF, WARDEN, IT_COIN, IT_HEART, IT_KEY, IT_GEM, IT_BOMB, IT_POTION, IT_STAR, TREE, PINE, BUSH, ROCK, CHEST, CHEST_OPEN, SIGN, CAVE, DOOR, GATE, CRYSTAL, RELIC, GRAVE, HATMAN, VENDING, SHRINE, VILLAGER_PALETTES, validateArt };
+return { PALETTE, HERO_DOWN, HERO_UP, HERO_SIDE, SLIME, BAT, SKELETON, SPORE, WOLF, WARDEN, CROW, THORN, STUMP, WISP, HATLING, WEEPER, SHIELDER, IT_COIN, IT_HEART, IT_KEY, IT_GEM, IT_BOMB, IT_POTION, IT_STAR, TREE, PINE, BUSH, ROCK, CHEST, CHEST_OPEN, SIGN, CAVE, DOOR, GATE, CRYSTAL, RELIC, GRAVE, HATMAN, VENDING, SHRINE, VILLAGER_PALETTES, validateArt };
 })();
 
 const __M_art = (function () {
@@ -1374,6 +1644,13 @@ function buildArt() {
   SPR.wolf = mob(D.WOLF);
   SPR.wolfL = SPR.wolf.map(flipH);
   SPR.warden = mob(D.WARDEN);
+  SPR.crow = mob(D.CROW);
+  SPR.thorn = mob(D.THORN);
+  SPR.stump = mob(D.STUMP);
+  SPR.wisp = mob(D.WISP);
+  SPR.hatling = mob(D.HATLING);
+  SPR.weeper = mob(D.WEEPER);
+  SPR.shielder = mob(D.SHIELDER);
 
   // 村人：色替え × 4 方向
   SPR.villagers = D.VILLAGER_PALETTES.map(pal => ({
@@ -3195,12 +3472,18 @@ function buildRoomLevel(world, room) {
 
 const MOB_POOL = {
   home: [], town: [],
-  glade: ['slime'], crates: ['slime', 'bat'],
-  forest: ['slime', 'spore', 'wolf'], mushroom: ['spore', 'slime'],
-  rocks: ['bat', 'skeleton'], pool: ['slime', 'bat'],
-  bridge: ['bat', 'wolf'], graveyard: ['skeleton', 'bat'],
-  ruins: ['skeleton', 'wolf'], ash: ['skeleton', 'bat', 'wolf'],
-  playground: ['slime', 'bat'], library: ['spore', 'skeleton'],
+  glade: ['slime', 'thorn', 'crow'],
+  crates: ['slime', 'bat', 'stump'],
+  forest: ['slime', 'spore', 'wolf', 'stump', 'crow'],
+  mushroom: ['spore', 'slime', 'weeper'],
+  rocks: ['bat', 'skeleton', 'thorn', 'shielder'],
+  pool: ['slime', 'bat', 'weeper'],
+  bridge: ['bat', 'wolf', 'crow'],
+  graveyard: ['skeleton', 'bat', 'wisp', 'weeper'],
+  ruins: ['skeleton', 'wolf', 'shielder', 'hatling'],
+  ash: ['skeleton', 'bat', 'wolf', 'wisp', 'hatling'],
+  playground: ['slime', 'bat', 'thorn', 'stump'],
+  library: ['spore', 'skeleton', 'hatling', 'wisp'],
 };
 
 /** 島ごとの飾りつけ */
@@ -3211,6 +3494,8 @@ function decorate(lv, room, rng, put, take, isGround, W, H, cx, cy) {
   // どの島にも すこしだけ草と花
   scatter(O.TUFT, 4 + rng.int(5));
   scatter(O.FLOWER, 1 + rng.int(3));
+  // 段ボールは 回復のみなもと。町と家いがいには 必ず ひとつ以上
+  if (k !== 'town' && k !== 'home') scatter(O.CRATE, 1 + rng.int(2));
 
   if (k === 'forest') { scatter(O.TREE, 7 + rng.int(5)); scatter(O.PINE, 2 + rng.int(3)); scatter(O.BUSH, 3); }
   else if (k === 'glade') { scatter(O.TREE, 1 + rng.int(2)); scatter(O.BUSH, 2 + rng.int(3)); }
@@ -3417,9 +3702,9 @@ const { makeRng } = __M_util;
 // ---------------------------------------------------------------------------
 
 const THEME = {
-  forest: { floor: T.FLOOR, wall: T.WALL, mobs: ['slime', 'spore', 'wolf'], boss: 'warden' },
-  cave:   { floor: T.STONE, wall: T.WALL, mobs: ['bat', 'slime', 'skeleton'], boss: 'warden' },
-  ruin:   { floor: T.FLOOR, wall: T.RUIN, mobs: ['skeleton', 'bat', 'wolf', 'spore'], boss: 'warden' },
+  forest: { floor: T.FLOOR, wall: T.WALL, mobs: ['slime', 'spore', 'wolf', 'stump', 'thorn'], boss: 'warden' },
+  cave:   { floor: T.STONE, wall: T.WALL, mobs: ['bat', 'slime', 'skeleton', 'wisp', 'shielder'], boss: 'warden' },
+  ruin:   { floor: T.FLOOR, wall: T.RUIN, mobs: ['skeleton', 'bat', 'wolf', 'spore', 'hatling', 'weeper'], boss: 'warden' },
 };
 
 function carveRoom(lv, r, floor) {
@@ -3559,6 +3844,8 @@ function generateDungeon(def, playerLevel = 1) {
       }, 1);
     }
     placeIn(r, (x, y) => { lv.setO(x, y, O.POT); return true; }, rng.irange(0, 3));
+    // 段ボール（中身は だいたい 回復）
+    placeIn(r, (x, y) => { lv.setO(x, y, O.CRATE); return true; }, rng.irange(1, 2));
     // 灯り
     if (rng() < 0.8) {
       lv.setO(r.x + 1, r.y + 1, O.TORCH);
@@ -3926,6 +4213,15 @@ class Player extends Entity {
     FX.burst(this.x, this.y - 8, 8, [PAL.o, PAL.n, PAL.p]);
     FX.floatText(this.x, this.y - 14, '-' + amount, PAL.o, { size: 7 });
     sfx('hurt');
+    // ポーションを 持っていれば、たおれる寸前に ひとりでに 飲む
+    if (this.hp <= 0 && this.potions > 0) {
+      this.potions--;
+      this.hp = Math.min(this.maxHp, 6);
+      this.invuln = PLAYER.invuln * 1.6;
+      sfx('heart');
+      FX.ring(this.x, this.y - 6, { r0: 3, r1: 26, life: 0.5, color: PAL.p, width: 2 });
+      FX.floatText(this.x, this.y - 20, 'ポーション！', PAL.p, { size: 8 });
+    }
     if (this.hp <= 0) { sfx('die'); FX.flash('#000000', 0.5); }
     return true;
   }
@@ -3936,10 +4232,18 @@ class Player extends Entity {
     if (this.hp > before) FX.floatText(this.x, this.y - 14, '+' + ((this.hp - before) / 2), PAL.o, { size: 7 });
   }
 
-  startAttack(spin = false) {
+  startAttack(spin = false, g = null) {
     if (spin) {
       this.spin = PLAYER.spinTime;
       this.attack = 0;
+      // まりょくが あるなら 回転斬りから 光が とびだす
+      if (g && this.magic && this.mp > 0) {
+        this.mp--;
+        for (let i = 0; i < 6; i++) {
+          g.spawnProjectile(this.x, this.y - 6, (i / 6) * TAU, 120, this.dmg, 'magic', true);
+        }
+        sfx('magic');
+      }
       this.attackHit.clear();
       sfx('swingBig');
       FX.ring(this.x, this.y - 6, { r0: 4, r1: 26, life: 0.32, color: PAL.l });
@@ -4158,6 +4462,15 @@ const ENEMY_DEF = {
   spore:    { hp: 6,  speed: 0,  dmg: 1, spr: 'spore',    ai: 'turret', coin: [3, 6],  hw: 6, hh: 4, shadow: 6, name: 'キノコ' },
   wolf:     { hp: 6,  speed: 42, dmg: 2, spr: 'wolf',     ai: 'dasher', coin: [4, 8],  hw: 7, hh: 4, shadow: 7, name: 'やまいぬ' },
   warden:   { hp: 46, speed: 26, dmg: 2, spr: 'warden',   ai: 'aiBoss',   coin: [60, 90], hw: 12, hh: 8, shadow: 13, scale: 2, boss: 1, name: '根の番人' },
+
+  // --- 追加の敵 ---
+  crow:     { hp: 5,  speed: 46, dmg: 2, spr: 'crow',     ai: 'diver',   coin: [4, 7],  hw: 6, hh: 4, shadow: 5, fly: 1, name: 'ものまね鳥' },
+  thorn:    { hp: 5,  speed: 70, dmg: 2, spr: 'thorn',    ai: 'roller',  coin: [3, 6],  hw: 5, hh: 5, shadow: 6, name: 'とげまり' },
+  stump:    { hp: 9,  speed: 30, dmg: 2, spr: 'stump',    ai: 'ambush',  coin: [6, 10], hw: 7, hh: 5, shadow: 7, name: 'ねぼけ株' },
+  wisp:     { hp: 4,  speed: 34, dmg: 1, spr: 'wisp',     ai: 'drifter', coin: [3, 6],  hw: 5, hh: 4, shadow: 4, fly: 1, split: 1, name: 'ひとだま' },
+  hatling:  { hp: 6,  speed: 30, dmg: 2, spr: 'hatling',  ai: 'blinker', coin: [6, 11], hw: 5, hh: 4, shadow: 5, name: 'こぼうし' },
+  weeper:   { hp: 8,  speed: 22, dmg: 2, spr: 'weeper',   ai: 'leaker',  coin: [5, 9],  hw: 6, hh: 4, shadow: 6, name: 'なきぼう' },
+  shielder: { hp: 12, speed: 24, dmg: 2, spr: 'shielder', ai: 'guard',   coin: [8, 14], hw: 7, hh: 5, shadow: 7, name: 'たてもち' },
 };
 
 class Enemy extends Entity {
@@ -4189,6 +4502,20 @@ class Enemy extends Entity {
 
   hurt(g, amount, fromX, fromY, kb = 130) {
     if (this.hp <= 0) return;
+    // たてもちは 向いている側からの攻撃を はじく
+    if (this.def.ai === 'guard') {
+      const [vx, vy] = DIR_VEC[this.dir];
+      const ax = fromX - this.x, ay = fromY - this.y;
+      const l = Math.hypot(ax, ay) || 1;
+      if ((ax / l) * vx + (ay / l) * vy > 0.35) {
+        this.flash = 0.08;
+        this.aggro = true;
+        sfx('error');
+        FX.burst(this.x + vx * 8, this.y - 6 + vy * 6, 6, [PAL.y, PAL.x], { spMax: 60 });
+        FX.floatText(this.x, this.y - 16, 'カン', PAL.x, { size: 7 });
+        return;
+      }
+    }
     this.hp -= amount;
     this.flash = 0.14;
     this.aggro = true;
@@ -4219,6 +4546,19 @@ class Enemy extends Entity {
       for (let i = 0; i < 3; i++) g.spawnPickup(this.x, this.y, 'heart');
       g.onBossDefeated?.(this);
     } else if (rng() < 0.05) g.spawnPickup(this.x, this.y, 'gem');
+
+    // ひとだまは 二つに わかれる（小さいのは わかれない）
+    if (this.def.split && !this.small) {
+      for (let i = 0; i < 2; i++) {
+        const a = rng.angle();
+        const e = g.spawnEnemy(this.x + Math.cos(a) * 10, this.y + Math.sin(a) * 10, this.kind, this.level);
+        if (e) {
+          e.small = true; e.maxHp = Math.max(1, Math.round(this.maxHp * 0.5)); e.hp = e.maxHp;
+          e.scale = 0.75; e.hw = 4; e.hh = 3; e.aggro = true;
+        }
+      }
+      sfx('spawn');
+    }
   }
 
   update(dt, g) {
@@ -4229,7 +4569,7 @@ class Enemy extends Entity {
     this.cd -= dt;
     const p = g.player;
     const d = dist(this.x, this.y, p.x, p.y);
-    if (!this.aggro && d < (this.boss ? 200 : 92)) this.aggro = true;
+    if (!this.aggro && d < (this.boss ? 200 : 92) && this.def.ai !== 'ambush') this.aggro = true;
     if (this.aggro && d > 260 && !this.boss) this.aggro = false;
 
     if (this.stun <= 0 && p.hp > 0) this[this.def.ai](dt, g, p, d);
@@ -4342,6 +4682,153 @@ class Enemy extends Entity {
     this.moveBy(g, this.vx * dt, this.vy * dt);
   }
 
+  // --- 追加の敵の AI ---
+
+  /** ものまね鳥：空で待って、まっすぐ 急降下してくる */
+  diver(dt, g, p, d) {
+    this.wobble += dt * 5;
+    if (this.state === 'dive') {
+      this.z = Math.max(0, this.z - 46 * dt);
+      this.moveBy(g, this.vx * dt, this.vy * dt, true);
+      if (this.t > this.stateEnd) { this.state = 'up'; this.stateEnd = this.t + 0.9; sfx('swing'); }
+      return;
+    }
+    if (this.state === 'up') {
+      this.z = Math.min(20, this.z + 40 * dt);
+      const ax = this.home.x - this.x, ay = this.home.y - this.y;
+      const l = Math.hypot(ax, ay) || 1;
+      this.moveBy(g, (ax / l) * this.speed * 0.7 * dt, (ay / l) * this.speed * 0.7 * dt, true);
+      if (this.t > this.stateEnd) { this.state = 'idle'; this.cd = rng.range(0.6, 1.4); }
+      return;
+    }
+    // 空をまわりながら ねらう
+    this.z = 18 + Math.sin(this.wobble) * 3;
+    const a = this.t * 1.1 + this.wobble * 0.2;
+    const tx = (this.aggro ? p.x : this.home.x) + Math.cos(a) * 34;
+    const ty = (this.aggro ? p.y : this.home.y) + Math.sin(a) * 26;
+    const ax = tx - this.x, ay = ty - this.y;
+    const l = Math.hypot(ax, ay) || 1;
+    this.vx = lerp(this.vx, (ax / l) * this.speed, 0.08);
+    this.vy = lerp(this.vy, (ay / l) * this.speed, 0.08);
+    this.moveBy(g, this.vx * dt, this.vy * dt, true);
+    this.dir = dirFromVec(this.vx, this.vy);
+    if (this.aggro && this.cd <= 0 && d < 90) {
+      this.state = 'dive'; this.stateEnd = this.t + 0.55;
+      const ang = Math.atan2(p.y - this.y, p.x - this.x);
+      this.vx = Math.cos(ang) * this.speed * 2.6;
+      this.vy = Math.sin(ang) * this.speed * 2.6;
+      this.dir = dirFromVec(this.vx, this.vy);
+      sfx('dash');
+    }
+  }
+
+  /** とげまり：まっすぐ ころがって、壁で はねかえる */
+  roller(dt, g, p, d) {
+    if (!this.rolling) {
+      if (!this.aggro) return;
+      const a = Math.atan2(p.y - this.y, p.x - this.x);
+      this.vx = Math.cos(a) * this.speed; this.vy = Math.sin(a) * this.speed;
+      this.rolling = true;
+    }
+    const bx = this.x, by = this.y;
+    this.moveBy(g, this.vx * dt, 0);
+    if (Math.abs(this.x - bx) < Math.abs(this.vx * dt) * 0.6) { this.vx = -this.vx; sfx('hit'); }
+    this.moveBy(g, 0, this.vy * dt);
+    if (Math.abs(this.y - by) < Math.abs(this.vy * dt) * 0.6) { this.vy = -this.vy; sfx('hit'); }
+    // ときどき ねらいなおす
+    if (this.cd <= 0) {
+      this.cd = rng.range(1.6, 2.8);
+      const a = Math.atan2(p.y - this.y, p.x - this.x) + rng.range(-0.5, 0.5);
+      const sp = Math.hypot(this.vx, this.vy) || this.speed;
+      this.vx = Math.cos(a) * sp; this.vy = Math.sin(a) * sp;
+    }
+    if (rng() < dt * 6) FX.dust(this.x, this.y, 1);
+  }
+
+  /** ねぼけ株：近づくまで ただの切り株。起きたら 追ってくる */
+  ambush(dt, g, p, d) {
+    if (!this.awake) {
+      this.aggro = false;
+      if (d < 34) {
+        this.awake = true; this.aggro = true;
+        sfx('spawn'); FX.dust(this.x, this.y, 6);
+        FX.floatText(this.x, this.y - 16, '！', PAL.o, { size: 9 });
+      }
+      return;
+    }
+    this.chaser(dt, g, p, d);
+  }
+
+  /** ひとだま：ふわふわ ただよう。たおすと 二つに わかれる */
+  drifter(dt, g, p, d) {
+    this.wobble += dt * 3;
+    this.z = 7 + Math.sin(this.wobble) * 4;
+    const a = this.aggro ? Math.atan2(p.y - this.y, p.x - this.x) : this.wobble * 0.6;
+    const sp = this.speed * (this.aggro ? 1 : 0.4);
+    this.vx = lerp(this.vx, Math.cos(a) * sp + Math.cos(this.wobble * 2.3) * 22, 0.05);
+    this.vy = lerp(this.vy, Math.sin(a) * sp + Math.sin(this.wobble * 1.9) * 16, 0.05);
+    this.moveBy(g, this.vx * dt, this.vy * dt, true);
+  }
+
+  /** こぼうし：すっと消えて、プレイヤーのそばに 出る */
+  blinker(dt, g, p, d) {
+    if (this.fade == null) this.fade = 1;
+    if (this.state === 'gone') {
+      this.fade = Math.max(0, this.fade - dt * 5);
+      if (this.t > this.stateEnd) {
+        const a = rng.angle();
+        const r = 26 + rng() * 10;
+        const nx = p.x + Math.cos(a) * r, ny = p.y + Math.sin(a) * r;
+        if (!g.level.hits(nx, ny, this.hw, this.hh)) { this.x = nx; this.y = ny; }
+        this.state = 'idle'; this.cd = rng.range(1.4, 2.4);
+        sfx('magic');
+        FX.ring(this.x, this.y - 6, { r0: 2, r1: 16, life: 0.3, color: PAL.s });
+      }
+      return;
+    }
+    this.fade = Math.min(1, this.fade + dt * 5);
+    this.dir = dirFromVec(p.x - this.x, p.y - this.y);
+    if (this.aggro) {
+      const a = Math.atan2(p.y - this.y, p.x - this.x);
+      this.vx = Math.cos(a) * this.speed; this.vy = Math.sin(a) * this.speed;
+      this.moveBy(g, this.vx * dt, this.vy * dt);
+    }
+    if (this.aggro && this.cd <= 0 && d > 20) {
+      this.state = 'gone'; this.stateEnd = this.t + 0.45;
+      FX.burst(this.x, this.y - 6, 8, [PAL['1'], PAL.s], { spMax: 40 });
+    }
+  }
+
+  /** なきぼう：のろいが、あるいたあとに 水たまりを おとす */
+  leaker(dt, g, p, d) {
+    this.chaser(dt, g, p, d);
+    if (this.aggro && this.cd <= 0) {
+      this.cd = rng.range(0.8, 1.4);
+      g.hazards.push({ kind: 'puddle', x: this.x, y: this.y, t: 0, warn: 0.35, life: 5.2, dmg: 1, r: 9, done: false });
+      sfx('splash');
+    }
+  }
+
+  /** たてもち：前からの攻撃を たてで はじく。うしろに回れ */
+  guard(dt, g, p, d) {
+    this.dir = dirFromVec(p.x - this.x, p.y - this.y);
+    if (!this.aggro) return;
+    const a = Math.atan2(p.y - this.y, p.x - this.x);
+    // ゆっくり近づいて、たまに たてで押してくる
+    if (this.state === 'bash') {
+      this.moveBy(g, this.vx * dt, this.vy * dt);
+      if (this.t > this.stateEnd) { this.state = 'idle'; this.cd = rng.range(1.6, 2.6); }
+      return;
+    }
+    this.vx = Math.cos(a) * this.speed; this.vy = Math.sin(a) * this.speed;
+    this.moveBy(g, this.vx * dt, this.vy * dt);
+    if (this.cd <= 0 && d < 40) {
+      this.state = 'bash'; this.stateEnd = this.t + 0.45;
+      this.vx = Math.cos(a) * this.speed * 3.4; this.vy = Math.sin(a) * this.speed * 3.4;
+      sfx('dash');
+    }
+  }
+
   aiBoss(dt, g, p, d) {
     const hpr = this.hp / this.maxHp;
     if (this.state === 'idle') {
@@ -4399,14 +4886,18 @@ class Enemy extends Entity {
     this.drawShadow(ctx);
     let spr;
     const frames = (this.kind === 'wolf' && (this.dir === 1)) ? SPR.wolfL : SPR[this.def.spr];
-    const f = Math.floor(this.t * (this.state === 'dash' || this.state === 'charge' ? 12 : 5)) % frames.length;
+    let f = Math.floor(this.t * (this.state === 'dash' || this.state === 'charge' ? 12 : 5)) % frames.length;
+    if (this.def.ai === 'ambush') f = this.awake ? 1 : 0;          // 起きるまで 目をあけない
+    if (this.def.ai === 'roller') f = Math.floor(this.t * 14) % frames.length;
     spr = frames[f];
+    if (this.fade != null && this.fade < 1) ctx.globalAlpha = this.fade;
     const tel = (this.state === 'wind');
     if (tel && Math.floor(this.t * 20) % 2 === 0) {
       this.blit(ctx, spr, 0, 0, this.scale, true);
     } else {
       this.blit(ctx, spr, 0, 0, this.scale, this.flash > 0);
     }
+    ctx.globalAlpha = 1;
     if (this.boss) drawBossBarWorld(ctx, this);
   }
 }
@@ -4673,6 +5164,57 @@ function updateHazards(dt, g) {
       }
       if (h.t > total + 0.2) h.done = true;
 
+    } else if (h.kind === 'puddle') {
+      // なきぼうの おとしもの。しばらく残って、ふむと 痛い
+      if (h.t >= h.warn) {
+        h.hurtCd = (h.hurtCd || 0) - dt;
+        if (dist(p.x, p.y, h.x, h.y) < h.r && h.hurtCd <= 0) {
+          h.hurtCd = 0.7;
+          p.hurt(g, h.dmg, h.x, h.y);
+        }
+      }
+      if (h.t > h.life) h.done = true;
+
+    } else if (h.kind === 'beam') {
+      // にらみ。目からの光が 地面をなめるように 動く
+      const total = h.warn + h.sweep;
+      if (h.t >= h.warn) {
+        const k = clamp((h.t - h.warn) / h.sweep, 0, 1);
+        h.cx = h.x0 + (h.x1 - h.x0) * k;
+        h.cy = h.y0 + (h.y1 - h.y0) * k;
+        if (!h.armed) { h.armed = true; sfx('magic'); FX.shake(3, 0.3); }
+        h.hurtCd = (h.hurtCd || 0) - dt;
+        if (dist(p.x, p.y, h.cx, h.cy) < h.r && h.hurtCd <= 0) {
+          h.hurtCd = 0.45;
+          p.hurt(g, h.dmg, h.cx, h.cy);
+        }
+        if (Math.random() < 0.7) FX.burst(h.cx, h.cy, 1, ['#ffd9a8', '#ff8f6b'], { spMax: 40, life: 0.3 });
+      }
+      if (h.t > total + 0.2) h.done = true;
+
+    } else if (h.kind === 'spike') {
+      // 地面から せりあがる とげ
+      if (!h.hit && h.t >= h.warn) {
+        h.hit = true;
+        sfx('hitHard'); FX.shake(3, 0.2);
+        FX.burst(h.x, h.y, 8, ['#8b8b97', '#5c5c68', '#453a51'], { spMax: 70 });
+        if (dist(p.x, p.y, h.x, h.y) < h.r) p.hurt(g, h.dmg, h.x, h.y);
+      }
+      if (h.t > h.warn + 1.4) h.done = true;
+
+    } else if (h.kind === 'wave') {
+      // ひろがる うなり。輪の上だけが 痛い
+      const k = clamp(h.t / h.dur, 0, 1);
+      h.cur = h.r0 + (h.r1 - h.r0) * k;
+      if (!h.armed) { h.armed = true; sfx('boss'); }
+      h.hurtCd = (h.hurtCd || 0) - dt;
+      const dd = Math.abs(dist(p.x, p.y, h.x, h.y) - h.cur);
+      if (dd < h.band && h.hurtCd <= 0) {
+        h.hurtCd = 0.6;
+        p.hurt(g, h.dmg, h.x, h.y);
+      }
+      if (h.t > h.dur) h.done = true;
+
     } else if (h.kind === 'quake') {
       if (!h.hit && h.t >= h.warn) {
         h.hit = true;
@@ -4715,6 +5257,77 @@ function drawHazardsUnder(ctx, g) {
       ctx.moveTo(0, Math.round(h.y - h.h) + 0.5); ctx.lineTo(g.level.w * 16, Math.round(h.y - h.h) + 0.5);
       ctx.moveTo(0, Math.round(h.y + h.h) - 0.5); ctx.lineTo(g.level.w * 16, Math.round(h.y + h.h) - 0.5);
       ctx.stroke();
+    } else if (h.kind === 'puddle') {
+      const k = clamp(h.t / h.warn, 0, 1);
+      const fade = clamp((h.life - h.t) / 0.9, 0, 1);
+      ctx.globalAlpha = 0.55 * fade;
+      ctx.fillStyle = '#2f5580';
+      ctx.beginPath();
+      ctx.ellipse(Math.round(h.x), Math.round(h.y), h.r * k, h.r * 0.5 * k, 0, 0, TAU);
+      ctx.fill();
+      ctx.globalAlpha = 0.7 * fade;
+      ctx.strokeStyle = '#7fb8d4';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.ellipse(Math.round(h.x), Math.round(h.y), h.r * k, h.r * 0.5 * k, 0, 0, TAU);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+
+    } else if (h.kind === 'beam') {
+      if (h.t < h.warn) {
+        // ねらいの線
+        const k = clamp(h.t / h.warn, 0, 1);
+        ctx.globalAlpha = 0.35 + 0.35 * k;
+        ctx.strokeStyle = Math.floor(h.t * 16) % 2 === 0 ? '#ffb08c' : '#d65c4e';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(Math.round(h.x0), Math.round(h.y0));
+        ctx.lineTo(Math.round(h.x1), Math.round(h.y1));
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.ellipse(Math.round(h.x0), Math.round(h.y0), h.r * k, h.r * 0.45 * k, 0, 0, TAU);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      } else {
+        // こげあと
+        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = '#3a2b28';
+        ctx.beginPath();
+        ctx.ellipse(Math.round(h.cx), Math.round(h.cy), h.r, h.r * 0.45, 0, 0, TAU);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+
+    } else if (h.kind === 'spike' && !h.hit) {
+      const k = clamp(h.t / h.warn, 0, 1);
+      ctx.globalAlpha = 0.25 + 0.3 * k;
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.ellipse(Math.round(h.x), Math.round(h.y), h.r * k, h.r * 0.45 * k, 0, 0, TAU);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = k > 0.7 && Math.floor(h.t * 18) % 2 === 0 ? '#ffb08c' : '#d65c4e';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.ellipse(Math.round(h.x), Math.round(h.y), h.r, h.r * 0.45, 0, 0, TAU);
+      ctx.stroke();
+
+    } else if (h.kind === 'wave') {
+      const fade = clamp(1 - h.t / h.dur, 0, 1);
+      ctx.globalAlpha = 0.25 + 0.45 * fade;
+      ctx.strokeStyle = '#cfe6d8';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.ellipse(Math.round(h.x), Math.round(h.y), h.cur || h.r0, (h.cur || h.r0) * 0.6, 0, 0, TAU);
+      ctx.stroke();
+      ctx.globalAlpha = 0.55 * fade;
+      ctx.strokeStyle = '#8f86a8';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.ellipse(Math.round(h.x), Math.round(h.y), (h.cur || h.r0) + 3, ((h.cur || h.r0) + 3) * 0.6, 0, 0, TAU);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+
     } else if (h.kind === 'quake' && !h.hit) {
       const k = clamp(h.t / h.warn, 0, 1);
       ctx.strokeStyle = '#d65c4e';
@@ -4751,6 +5364,47 @@ function drawHazardsOver(ctx, g) {
         ctx.fillRect(Math.round(h.x) - 4, Math.round(h.y) - 13, 8, 2);
         ctx.globalAlpha = 1;
       }
+    } else if (h.kind === 'beam' && h.t >= h.warn) {
+      // 目から地面へ のびる光の柱
+      const w = 3 + Math.sin(h.t * 40) * 1.2;
+      ctx.globalAlpha = 0.85;
+      ctx.strokeStyle = '#ffd9a8';
+      ctx.lineWidth = w;
+      ctx.beginPath();
+      ctx.moveTo(Math.round(h.ex), Math.round(h.ey));
+      ctx.lineTo(Math.round(h.cx), Math.round(h.cy));
+      ctx.stroke();
+      ctx.globalAlpha = 0.5;
+      ctx.strokeStyle = '#ff8f6b';
+      ctx.lineWidth = w + 3;
+      ctx.beginPath();
+      ctx.moveTo(Math.round(h.ex), Math.round(h.ey));
+      ctx.lineTo(Math.round(h.cx), Math.round(h.cy));
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+
+    } else if (h.kind === 'spike' && h.hit) {
+      // せりあがった とげ（しばらく残る）
+      const k = clamp((h.t - h.warn) / 0.18, 0, 1);
+      const a = clamp(1 - (h.t - h.warn - 0.9) / 0.5, 0, 1);
+      const hgt = 18 * k;
+      ctx.globalAlpha = a;
+      ctx.fillStyle = '#453a51';
+      ctx.beginPath();
+      ctx.moveTo(Math.round(h.x) - 5, Math.round(h.y));
+      ctx.lineTo(Math.round(h.x), Math.round(h.y) - hgt);
+      ctx.lineTo(Math.round(h.x) + 5, Math.round(h.y));
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#8b8b97';
+      ctx.beginPath();
+      ctx.moveTo(Math.round(h.x) - 2, Math.round(h.y));
+      ctx.lineTo(Math.round(h.x), Math.round(h.y) - hgt);
+      ctx.lineTo(Math.round(h.x) + 1, Math.round(h.y));
+      ctx.closePath();
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
     } else if (h.kind === 'sweep' && h.t >= h.warn) {
       const x = Math.round(h.cur);
       ctx.fillStyle = '#2d2635';
@@ -4987,13 +5641,18 @@ function drawDecor(ctx, id, px, py, x, y) {
     }
     ctx.globalAlpha = 1;
   } else if (id === O.CRATE) {
-    ctx.fillStyle = PAL['0']; ctx.fillRect(px + 2, py + 3, 12, 12);
-    ctx.fillStyle = PAL.e; ctx.fillRect(px + 3, py + 4, 10, 10);
-    ctx.fillStyle = PAL.f; ctx.fillRect(px + 3, py + 4, 10, 2);
-    ctx.fillStyle = PAL.d;
-    ctx.fillRect(px + 3, py + 8, 10, 1);
-    ctx.fillRect(px + 7, py + 4, 1, 10);
-    ctx.fillStyle = PAL.c; ctx.fillRect(px + 3, py + 13, 10, 1);
+    // 段ボール箱。ふたが すこし あいている
+    ctx.fillStyle = PAL['0']; ctx.fillRect(px + 1, py + 2, 14, 13);
+    ctx.fillStyle = PAL.f; ctx.fillRect(px + 2, py + 3, 12, 11);     // 前面
+    ctx.fillStyle = PAL.g; ctx.fillRect(px + 2, py + 3, 12, 4);      // ふた（上面）
+    ctx.fillStyle = PAL.e; ctx.fillRect(px + 11, py + 3, 3, 11);     // 右の影
+    ctx.fillStyle = PAL.d; ctx.fillRect(px + 2, py + 6, 12, 1);      // ふちの線
+    ctx.fillStyle = PAL.e; ctx.fillRect(px + 7, py + 3, 1, 3);       // ふたの合わせ目
+    ctx.fillStyle = PAL.x; ctx.fillRect(px + 6, py + 3, 1, 4);       // ガムテープ
+    ctx.fillStyle = PAL.w; ctx.fillRect(px + 6, py + 7, 1, 7);
+    ctx.fillStyle = PAL.d;                                            // 見え消しの字
+    ctx.fillRect(px + 3, py + 9, 5, 1); ctx.fillRect(px + 3, py + 11, 3, 1);
+    ctx.fillStyle = PAL.c; ctx.fillRect(px + 2, py + 13, 12, 1);
   } else if (id === O.LAMP) {
     ctx.fillStyle = PAL['0'];
     ctx.fillRect(px + 6, py + 2, 4, 14);
@@ -5915,10 +6574,15 @@ class GiantBoss {
 
   pickMove(g) {
     const p = g.player;
-    const pool = ['slam', 'slam', 'spit'];
-    if (this.phase >= 2) pool.push('daggers', 'sweep', 'slam');
-    if (this.phase >= 3) pool.push('lunge', 'daggers', 'sweep');
-    const move = rng.pick(pool);
+    // 手だけに かたよらないよう 腕以外の技を 多めに。
+    // ただし「ついた手」は こちらが 殴れる ただ一つの機会なので、slam は 残しておく。
+    const pool = ['slam', 'slam', 'slam', 'spit', 'gaze', 'spikes', 'call'];
+    if (this.phase >= 2) pool.push('daggers', 'sweep', 'wave', 'gaze', 'spikes', 'slam', 'slam');
+    if (this.phase >= 3) pool.push('lunge', 'daggers', 'wave', 'call', 'spikes', 'sweep', 'slam');
+    // 腕以外の技は 続けて出さない（slam は 出てよい）
+    let move = rng.pick(pool);
+    for (let i = 0; i < 3 && move !== 'slam' && move === this.lastMove; i++) move = rng.pick(pool);
+    this.lastMove = move;
     const gap = this.phase === 1 ? rng.range(2.0, 2.8) : this.phase === 2 ? rng.range(1.5, 2.2) : rng.range(1.1, 1.7);
 
     if (move === 'slam') {
@@ -5954,7 +6618,111 @@ class GiantBoss {
     } else if (move === 'lunge') {
       this.startLunge(g);
       this.cd = gap + 2.4;
+    } else if (move === 'gaze') {
+      this.startGaze(g);
+      this.cd = gap + 1.4;
+    } else if (move === 'spikes') {
+      this.startSpikes(g);
+      this.cd = gap + 1.0;
+    } else if (move === 'wave') {
+      this.startWave(g);
+      this.cd = gap + 1.2;
+    } else if (move === 'call') {
+      this.startCall(g);
+      this.cd = gap + 1.6;
     }
+  }
+
+  // --- にらみ（目からの光が 地面をなめる）---
+  startGaze(g) {
+    const p = g.player;
+    const W = g.level.w * TILE;
+    const top = HORIZON_Y + 26, bot = g.level.h * TILE - 26;
+    // 光は 目から出す（顔の描画と 同じ位置）
+    const side = p.x < this.cx ? -1 : 1;
+    const ex = this.headX + side * this.def.headW * 0.40;
+    const ey = this.headY - this.def.headH * 0.36;
+    const horizontal = rng() < 0.6;
+    const y = clamp(p.y + rng.range(-18, 18), top, bot);
+    const dir = p.x < this.cx ? 1 : -1;
+    const a = horizontal
+      ? { x0: dir > 0 ? 24 : W - 24, y0: y, x1: dir > 0 ? W - 24 : 24, y1: y }
+      : { x0: clamp(p.x + rng.range(-30, 30), 24, W - 24), y0: top, x1: clamp(p.x + rng.range(-30, 30), 24, W - 24), y1: bot };
+    say({ target: this.anchor, text: 'よく 見えるよ。', tone: 'boss', life: 1.4 });
+    g.hazards.push({
+      kind: 'beam', ...a, ex, ey, cx: a.x0, cy: a.y0,
+      t: 0, warn: 0.95, sweep: this.phase >= 3 ? 1.5 : 2.1, dmg: 2, r: 11, done: false,
+    });
+    sfx('magic');
+  }
+
+  // --- せりあがる とげ（プレイヤーを 囲む ように）---
+  startSpikes(g) {
+    const p = g.player;
+    const W = g.level.w * TILE, H = g.level.h * TILE;
+    const top = HORIZON_Y + 24;
+    say({ target: this.anchor, text: 'したを ごらん。', tone: 'boss', life: 1.3 });
+    const ring = rng() < 0.55;
+    if (ring) {
+      // 足もとを 囲む輪（ぬける すきまが ひとつ ある）
+      const n = 9 + this.phase;
+      const gapAt = rng.int(n);
+      const rad = 34;
+      for (let i = 0; i < n; i++) {
+        if (i === gapAt && this.phase < 3) continue;
+        const a = (i / n) * TAU;
+        g.hazards.push({
+          kind: 'spike', x: clamp(p.x + Math.cos(a) * rad, 18, W - 18),
+          y: clamp(p.y + Math.sin(a) * rad * 0.8, top, H - 18),
+          t: -i * 0.02, warn: 0.8, dmg: 2, r: 11, done: false,
+        });
+      }
+    } else {
+      // まっすぐ 走ってくる 一列
+      const a = Math.atan2(p.y - (HORIZON_Y + 20), p.x - this.cx);
+      const n = 7 + this.phase * 2;
+      for (let i = 0; i < n; i++) {
+        g.hazards.push({
+          kind: 'spike',
+          x: clamp(this.cx + Math.cos(a) * (26 + i * 17), 18, W - 18),
+          y: clamp(HORIZON_Y + 20 + Math.sin(a) * (26 + i * 17), top, H - 18),
+          t: -i * 0.07, warn: 0.55, dmg: 2, r: 11, done: false,
+        });
+      }
+    }
+    sfx('swingBig');
+  }
+
+  // --- うなり（ひろがる輪。輪の上だけ 痛い）---
+  startWave(g) {
+    const W = g.level.w * TILE;
+    const n = this.phase >= 3 ? 3 : 2;
+    say({ target: this.anchor, text: 'しずかに して。', tone: 'boss', life: 1.3 });
+    for (let i = 0; i < n; i++) {
+      g.hazards.push({
+        kind: 'wave', x: clamp(this.cx, 0, W), y: HORIZON_Y + 18,
+        r0: 18, r1: 230, band: 13, dur: 1.9, dmg: 2, t: -i * 0.55, done: false,
+      });
+    }
+    FX.shake(4, 0.4);
+    duckMusic(0.10, 1.0);
+  }
+
+  // --- よびよせ（口から こぼれてくる）---
+  startCall(g) {
+    const W = g.level.w * TILE;
+    const n = this.phase >= 3 ? 3 : 2;
+    say({ target: this.anchor, text: 'ひとりじゃ さみしいね。', tone: 'boss', life: 1.5 });
+    this.mouth = 1;
+    for (let i = 0; i < n; i++) {
+      const x = clamp(this.cx + rng.range(-56, 56), 26, W - 26);
+      const y = HORIZON_Y + 30 + rng.range(0, 16);
+      const kind = rng.pick(this.phase >= 2 ? ['bat', 'wisp', 'thorn', 'hatling'] : ['bat', 'slime', 'thorn']);
+      const e = g.spawnEnemy(x, y, kind, 2);
+      if (e) { e.aggro = true; e.stun = 0.3; }
+      FX.ring(x, y, { r0: 3, r1: 22, life: 0.35, color: '#cfe6d8' });
+    }
+    sfx('spawn');
   }
 
   // --- 短剣の雨 ---
@@ -6580,7 +7348,7 @@ function drawHud(ctx, g) {
   if (bs) {
     const w2 = Math.min(W - 44 * S, 268 * S), h2 = 11 * S;
     const x2 = (W - w2) / 2;
-    const y2 = view.cssH - ui.padBottom - 124 * S;
+    const y2 = view.cssH - ui.padBottom - 58 * S;
     txt(ctx, bs.name || bs.def.name, x2 + w2 / 2, y2 - 19 * S,
       { size: 12.5 * S, align: 'center', color: '#f6e3e3', weight: 700 });
     ctx.fillStyle = 'rgba(0,0,0,0.5)';
@@ -6666,21 +7434,12 @@ function hudButtonLayout() {
 }
 
 function controlLayout() {
-  const S = ui.S, W = view.cssW, H = view.cssH;
-  const ay = H - ui.padBottom - 62 * S;
-  return {
-    a: { x: W - 56 * S, y: ay, r: 38 * S },
-    b: { x: W - 122 * S, y: ay + 18 * S, r: 26 * S },
-    swap: { x: W - 122 * S, y: ay - 26 * S, r: 15 * S },
-    S,
-  };
+  // ボタンは もう置かない（ドラッグで歩き、タップで斬る）。
+  return { S: ui.S };
 }
 
 function drawTouchControls(ctx, g) {
   const S = ui.S;
-  const L = controlLayout();
-  const p = g.player;
-
   // フローティングスティック
   if (input.stick.active && !input.gStill) {
     const s = input.stick;
@@ -6708,63 +7467,6 @@ function drawTouchControls(ctx, g) {
     ctx.globalAlpha = 1;
   }
 
-  if (!ui.showControls) return;
-
-  // A ボタン
-  const aDown = input.a;
-  ctx.globalAlpha = aDown ? 0.95 : 0.62;
-  ctx.beginPath(); ctx.arc(L.a.x, L.a.y, L.a.r, 0, TAU);
-  ctx.fillStyle = aDown ? '#7a4750' : 'rgba(30,22,34,0.8)'; ctx.fill();
-  ctx.strokeStyle = UI.red; ctx.lineWidth = 2.4 * S; ctx.stroke();
-  ctx.globalAlpha = 1;
-  drawSwordIcon(ctx, L.a.x, L.a.y, 16 * S);
-
-  // B ボタン（道具）
-  const item = p.item;
-  const cnt = item === 'bomb' ? p.bombs : item === 'potion' ? p.potions : p.mp;
-  ctx.globalAlpha = input.b ? 0.95 : 0.55;
-  ctx.beginPath(); ctx.arc(L.b.x, L.b.y, L.b.r, 0, TAU);
-  ctx.fillStyle = input.b ? '#4a5a7a' : 'rgba(30,22,34,0.8)'; ctx.fill();
-  ctx.strokeStyle = PAL.j; ctx.lineWidth = 2.2 * S; ctx.stroke();
-  ctx.globalAlpha = 1;
-  const iconOf = (k) => (k === 'bomb' ? SPR.bomb : k === 'potion' ? SPR.potion : SPR.gem);
-  sprite(ctx, iconOf(item), L.b.x - 10 * S, L.b.y - 12 * S, 2.4 * S);
-  txt(ctx, String(cnt), L.b.x + 16 * S, L.b.y + 4 * S, { size: 12 * S, align: 'right', color: cnt > 0 ? UI.ink : '#7c6f84' });
-
-  // 道具の切り替え（次の道具が小さく見えている）
-  const order = ['bomb', 'potion'];
-  if (p.magic) order.push('magic');
-  if (order.length > 1) {
-    const next = order[(order.indexOf(item) + 1) % order.length];
-    ctx.globalAlpha = 0.5;
-    ctx.beginPath(); ctx.arc(L.swap.x, L.swap.y, L.swap.r, 0, TAU);
-    ctx.fillStyle = 'rgba(30,22,34,0.8)'; ctx.fill();
-    ctx.strokeStyle = PAL.w; ctx.lineWidth = 1.6 * S; ctx.stroke();
-    ctx.globalAlpha = 0.85;
-    sprite(ctx, iconOf(next), L.swap.x - 6 * S, L.swap.y - 7 * S, 1.5 * S);
-    ctx.globalAlpha = 1;
-    // 循環をあらわす小さな矢印
-    ctx.strokeStyle = PAL.x; ctx.lineWidth = 1.2 * S;
-    ctx.beginPath();
-    ctx.arc(L.swap.x, L.swap.y, L.swap.r - 3 * S, -0.6, 1.6);
-    ctx.stroke();
-  }
-}
-
-function drawSwordIcon(ctx, cx, cy, r) {
-  const S = ui.S;
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(-Math.PI / 4);
-  ctx.fillStyle = PAL.x;
-  ctx.fillRect(-2 * S, -r, 4 * S, r * 1.5);
-  ctx.fillStyle = PAL.y;
-  ctx.fillRect(-2 * S, -r, 2 * S, r * 1.5);
-  ctx.fillStyle = PAL.s;
-  ctx.fillRect(-7 * S, r * 0.5, 14 * S, 3.5 * S);
-  ctx.fillStyle = PAL.d;
-  ctx.fillRect(-2.5 * S, r * 0.5, 5 * S, r * 0.45);
-  ctx.restore();
 }
 
 // --- マップ ----------------------------------------------------------------
@@ -7704,14 +8406,8 @@ function updatePlay(dt) {
     const d = UIx.registerDialogButtons();
     if (d) btns.push(...d);
   } else {
-    const L = UIx.controlLayout();
-    if (UIx.ui.showControls) {
-      const order = ['bomb', 'potion'];
-      if (g.player.magic) order.push('magic');
-      if (order.length > 1) btns.push({ id: 'swap', x: L.swap.x, y: L.swap.y, r: L.swap.r });
-      btns.push({ id: 'b', x: L.b.x, y: L.b.y, r: L.b.r });
-      btns.push({ id: 'a', x: L.a.x, y: L.a.y, r: L.a.r });
-    }
+    // 剣・爆弾・ポーションのボタンは 置かない。
+    // 歩くのは ドラッグ、斬るのは タップ、道具は 使う場所で 自動。
     const hb = UIx.hudButtonLayout();
     btns.push({ id: 'menu', x: hb.menu.x, y: hb.menu.y, r: hb.menu.r });
     btns.push({ id: 'map', x: hb.map.x, y: hb.map.y, r: hb.map.r });
@@ -7743,7 +8439,6 @@ function updatePlay(dt) {
   } else {
     if (pressed.has('menu') || input.menuPressed) { openPauseMenu(); }
     else if (pressed.has('map') || input.mapPressed) { g.mapOpen = true; UIx.invalidateMap(); sfx('ui'); clearHeld(); }
-    else if (pressed.has('swap')) { cycleItem(); sfx('ui'); }
   }
 
   // --- ゲーム進行 ---
@@ -7809,13 +8504,13 @@ function simulate(dt) {
       else if (idle && p.cooldown <= 0) p.startAttack(false);
     }
     // 片手ジェスチャで ためきって離した
-    if (input.gCharge && idle) p.startAttack(true);
+    if (input.gCharge && idle) p.startAttack(true, g);
 
     // Ａボタン長押しの「ため」（振り終わってから貯まりはじめる）
     // ※ 離した瞬間の判定を先に見ること。あとだと charge が 0 に戻ってしまう。
     const canSpin = p.attack <= 0 && p.spin <= 0;
     if (input.aReleased) {
-      if (p.charge > PLAYER.chargeTime && canSpin) p.startAttack(true);
+      if (p.charge > PLAYER.chargeTime && canSpin) p.startAttack(true, g);
       p.charge = 0;
     } else if (input.a && canSpin) {
       const before = p.charge;
@@ -7834,7 +8529,6 @@ function simulate(dt) {
       p.startRoll(dx, dy);
     }
 
-    if (input.bPressed) useItem();
   } else { g.interact = null; p.charge = 0; }
 
   p.update(dt, g);
@@ -7922,10 +8616,17 @@ function damageObject(x, y, amount) {
   FX.burst(cx, cy, 10, id === O.BUSH ? [PAL.a, PAL['9'], PAL.b] : id === O.CAGE ? [PAL.u, PAL.c] : [PAL.e, PAL.f, PAL.d]);
   FX.shake(1.5, 0.12);
   const rng = Math.random();
-  if (id === O.BUSH || id === O.POT) {
+  if (id === O.CRATE) {
+    // 段ボールの中身は だいたい 回復。ボタンが ないぶん ここで まかなう。
+    if (rng < 0.52) g.spawnPickup(cx, cy, 'heart');
+    else if (rng < 0.70) { g.spawnPickup(cx, cy, 'heart'); g.spawnPickup(cx + 5, cy, 'heart'); }
+    else if (rng < 0.82) g.spawnPickup(cx, cy, 'potion');
+    else if (rng < 0.92) g.spawnPickup(cx, cy, 'bomb');
+    else g.spawnPickup(cx, cy, 'coin', 3);
+  } else if (id === O.BUSH || id === O.POT) {
     if (rng < 0.24) g.spawnPickup(cx, cy, 'coin');
-    else if (rng < 0.32) g.spawnPickup(cx, cy, 'heart');
-    else if (rng < 0.35) g.spawnPickup(cx, cy, 'bomb');
+    else if (rng < 0.38) g.spawnPickup(cx, cy, 'heart');
+    else if (rng < 0.42) g.spawnPickup(cx, cy, 'bomb');
   } else if (id === O.CAGE) {
     freeVillager(x, y);
   } else if (id === O.CRYSTAL) {
@@ -8003,6 +8704,7 @@ function findInteract() {
     if (id === O.VENDING) return { type: 'vending', x: x * TILE + 8, y: y * TILE - 6, tx: x, ty: y };
     if (id === O.SHRINE) return { type: 'shrine', x: x * TILE + 8, y: y * TILE - 4, tx: x, ty: y };
     if (id === O.RELIC) return { type: 'relic', x: x * TILE + 8, y: y * TILE - 4, tx: x, ty: y };
+    if (id === O.CRACK) return { type: 'crack', x: x * TILE + 8, y: y * TILE - 4, tx: x, ty: y };
   }
   return null;
 }
@@ -8117,6 +8819,7 @@ function doInteract(t) {
       });
       break;
     }
+    case 'crack': plantBomb(t.tx, t.ty); break;
   }
 }
 
@@ -8243,31 +8946,16 @@ function checkTileTriggers() {
 }
 
 // ---------------------------------------------------------------------------
-function useItem() {
+/** ひび割れの前で 爆弾を しかける（ボタンは いらない）*/
+function plantBomb(tx, ty) {
   const p = g.player;
-  if (p.item === 'bomb') {
-    if (p.bombs <= 0) { sfx('error'); UIx.toast('爆弾が ない'); return; }
-    p.bombs--;
-    const [dx, dy] = DIR_VEC[p.dir];
-    const b = new Bomb(p.x + dx * 10, p.y + dy * 8, 6 + p.swordLv);
-    b.vx = dx * 40; b.vy = dy * 40;
-    g.bombs.push(b);
-    sfx('fuse');
-  } else if (p.item === 'potion') {
-    if (p.potions <= 0) { sfx('error'); UIx.toast('ポーションが ない'); return; }
-    if (p.hp >= p.maxHp) { sfx('error'); UIx.toast('元気いっぱいだ'); return; }
-    p.potions--;
-    p.heal(6);
-    sfx('heart');
-    FX.ring(p.x, p.y - 6, { r0: 3, r1: 22, life: 0.4, color: PAL.p });
-  } else if (p.item === 'magic') {
-    if (p.mp <= 0) { sfx('error'); UIx.toast('まりょくが たりない'); return; }
-    p.mp--;
-    const [dx, dy] = DIR_VEC[p.dir];
-    const a = Math.atan2(dy, dx);
-    g.spawnProjectile(p.x, p.y - 6, a, 130, p.dmg * 2, 'magic', true);
-    sfx('magic');
-  }
+  if (p.bombs <= 0) { sfx('error'); UIx.toast('爆弾が ない', 'ほら穴の 木箱を 割ってみよう'); return; }
+  p.bombs--;
+  const [dx, dy] = DIR_VEC[p.dir];
+  const b = new Bomb(p.x + dx * 10, p.y + dy * 8, 6 + p.swordLv);
+  g.bombs.push(b);
+  sfx('fuse');
+  UIx.toast('爆弾を しかけた', 'はなれて まとう');
 }
 
 // ---------------------------------------------------------------------------
@@ -8306,18 +8994,18 @@ function openPauseMenu() {
       { label: 'つづける', sub: 'ゲームにもどる', action: () => {} },
       { label: 'マップ', sub: `${g.level.name} ・ ${formatTime(g.playTime)}`, action: () => { g.mapOpen = true; UIx.invalidateMap(); } },
       {
-        label: 'どうぐ を きりかえ',
-        sub: `いま：${p.item === 'bomb' ? '爆弾' : p.item === 'potion' ? 'ポーション' : '魔法'}`,
-        action: () => cycleItem(),
+        label: 'もちもの',
+        sub: `爆弾 ${p.bombs} ・ ポーション ${p.potions}${p.magic ? ` ・ まりょく ${p.mp}` : ''}`,
+        action: () => UIx.toast('爆弾は ひび割れの前で', 'ポーションは 力つきる時に ひとりでに'),
       },
       {
         label: isMuted() ? '音を だす' : '音を けす', sub: 'BGM と 効果音',
         action: () => { toggleMute(); UIx.toast(isMuted() ? '音 OFF' : '音 ON'); },
       },
       {
-        label: UIx.ui.showControls ? 'ボタンを かくす' : 'ボタンを だす',
-        sub: 'ドラッグ移動＋タップ攻撃だけでも 遊べます',
-        action: () => { UIx.ui.showControls = !UIx.ui.showControls; },
+        label: 'あそびかた',
+        sub: 'ドラッグで歩く / タップで斬る / 長押しで回転斬り / 払って回避',
+        action: () => UIx.toast('画面を ドラッグ すると 歩きます', 'その場を タップ すると 斬ります'),
       },
       {
         label: 'セーブしてタイトルへ', sub: '進行状況は 保存されます',
@@ -8331,15 +9019,6 @@ function openPauseMenu() {
     ],
     footer: '外側をタップ / ✕ でとじる',
   });
-}
-
-function cycleItem() {
-  const p = g.player;
-  const order = ['bomb', 'potion'];
-  if (p.magic) order.push('magic');
-  const i = order.indexOf(p.item);
-  p.item = order[(i + 1) % order.length];
-  UIx.toast(`どうぐ：${p.item === 'bomb' ? '爆弾' : p.item === 'potion' ? 'ポーション' : '魔法'}`);
 }
 
 // --- 建物 ------------------------------------------------------------------
@@ -8437,8 +9116,8 @@ function openShopMenu(b) {
     title: 'よろず屋',
     sub: `所持 ${p.coins} コイン`,
     items: [
-      { label: 'ポーション', sub: 'ハート3つ 回復', icon: 'potion', cost: 25, disabled: p.coins < 25, action: buy(25, () => p.potions++, 'ポーションを 買った') },
-      { label: '爆弾 ×3', sub: '岩や 敵を ふきとばす', icon: 'bomb', cost: 30, disabled: p.coins < 30, action: buy(30, () => p.bombs += 3, '爆弾を 買った') },
+      { label: 'ポーション', sub: '力つきる時に ひとりでに 効く', icon: 'potion', cost: 25, disabled: p.coins < 25, action: buy(25, () => p.potions++, 'ポーションを 買った') },
+      { label: '爆弾 ×3', sub: 'ひび割れた壁の前で つかう', icon: 'bomb', cost: 30, disabled: p.coins < 30, action: buy(30, () => p.bombs += 3, '爆弾を 買った') },
       { label: 'カギ', sub: 'ダンジョンの 扉を 開ける', icon: 'key', cost: 80, disabled: p.coins < 80, action: buy(80, () => p.keys++, 'カギを 買った') },
       { label: 'やめる', action: () => {} },
     ],
@@ -8598,6 +9277,7 @@ g.objectiveText = function () {
 // 自動テスト用の入口（ブラウザからゲーム内部を叩けるようにしておく）
 g.ui = UIx;
 g.dev = {
+  SPR,
   enterLevel: (...a) => enterLevel(...a),
   enterRoom: (...a) => enterRoom(...a),
   travel: (d) => travel(d),
@@ -8625,7 +9305,9 @@ function drawInteractPrompt(ctx) {
   ctx.arc(sx, sy + bob, 13 * S, 0, Math.PI * 2);
   ctx.fillStyle = 'rgba(24,18,30,0.9)'; ctx.fill();
   ctx.strokeStyle = UI.gold; ctx.lineWidth = 2 * S; ctx.stroke();
-  UIx.txt(ctx, '！', sx, sy + bob - 9 * S, { size: 16 * S, align: 'center', color: UI.gold, outline: false });
+  const mark = t.type === 'crack' ? '爆' : '！';
+  UIx.txt(ctx, mark, sx, sy + bob - (mark === '爆' ? 7 : 9) * S,
+    { size: (mark === '爆' ? 13 : 16) * S, align: 'center', color: UI.gold, outline: false });
   ctx.restore();
 }
 

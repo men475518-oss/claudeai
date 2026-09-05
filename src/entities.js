@@ -161,6 +161,15 @@ export class Player extends Entity {
     FX.burst(this.x, this.y - 8, 8, [PAL.o, PAL.n, PAL.p]);
     FX.floatText(this.x, this.y - 14, '-' + amount, PAL.o, { size: 7 });
     sfx('hurt');
+    // ポーションを 持っていれば、たおれる寸前に ひとりでに 飲む
+    if (this.hp <= 0 && this.potions > 0) {
+      this.potions--;
+      this.hp = Math.min(this.maxHp, 6);
+      this.invuln = PLAYER.invuln * 1.6;
+      sfx('heart');
+      FX.ring(this.x, this.y - 6, { r0: 3, r1: 26, life: 0.5, color: PAL.p, width: 2 });
+      FX.floatText(this.x, this.y - 20, 'ポーション！', PAL.p, { size: 8 });
+    }
     if (this.hp <= 0) { sfx('die'); FX.flash('#000000', 0.5); }
     return true;
   }
@@ -171,10 +180,18 @@ export class Player extends Entity {
     if (this.hp > before) FX.floatText(this.x, this.y - 14, '+' + ((this.hp - before) / 2), PAL.o, { size: 7 });
   }
 
-  startAttack(spin = false) {
+  startAttack(spin = false, g = null) {
     if (spin) {
       this.spin = PLAYER.spinTime;
       this.attack = 0;
+      // まりょくが あるなら 回転斬りから 光が とびだす
+      if (g && this.magic && this.mp > 0) {
+        this.mp--;
+        for (let i = 0; i < 6; i++) {
+          g.spawnProjectile(this.x, this.y - 6, (i / 6) * TAU, 120, this.dmg, 'magic', true);
+        }
+        sfx('magic');
+      }
       this.attackHit.clear();
       sfx('swingBig');
       FX.ring(this.x, this.y - 6, { r0: 4, r1: 26, life: 0.32, color: PAL.l });
@@ -393,6 +410,15 @@ export const ENEMY_DEF = {
   spore:    { hp: 6,  speed: 0,  dmg: 1, spr: 'spore',    ai: 'turret', coin: [3, 6],  hw: 6, hh: 4, shadow: 6, name: 'キノコ' },
   wolf:     { hp: 6,  speed: 42, dmg: 2, spr: 'wolf',     ai: 'dasher', coin: [4, 8],  hw: 7, hh: 4, shadow: 7, name: 'やまいぬ' },
   warden:   { hp: 46, speed: 26, dmg: 2, spr: 'warden',   ai: 'aiBoss',   coin: [60, 90], hw: 12, hh: 8, shadow: 13, scale: 2, boss: 1, name: '根の番人' },
+
+  // --- 追加の敵 ---
+  crow:     { hp: 5,  speed: 46, dmg: 2, spr: 'crow',     ai: 'diver',   coin: [4, 7],  hw: 6, hh: 4, shadow: 5, fly: 1, name: 'ものまね鳥' },
+  thorn:    { hp: 5,  speed: 70, dmg: 2, spr: 'thorn',    ai: 'roller',  coin: [3, 6],  hw: 5, hh: 5, shadow: 6, name: 'とげまり' },
+  stump:    { hp: 9,  speed: 30, dmg: 2, spr: 'stump',    ai: 'ambush',  coin: [6, 10], hw: 7, hh: 5, shadow: 7, name: 'ねぼけ株' },
+  wisp:     { hp: 4,  speed: 34, dmg: 1, spr: 'wisp',     ai: 'drifter', coin: [3, 6],  hw: 5, hh: 4, shadow: 4, fly: 1, split: 1, name: 'ひとだま' },
+  hatling:  { hp: 6,  speed: 30, dmg: 2, spr: 'hatling',  ai: 'blinker', coin: [6, 11], hw: 5, hh: 4, shadow: 5, name: 'こぼうし' },
+  weeper:   { hp: 8,  speed: 22, dmg: 2, spr: 'weeper',   ai: 'leaker',  coin: [5, 9],  hw: 6, hh: 4, shadow: 6, name: 'なきぼう' },
+  shielder: { hp: 12, speed: 24, dmg: 2, spr: 'shielder', ai: 'guard',   coin: [8, 14], hw: 7, hh: 5, shadow: 7, name: 'たてもち' },
 };
 
 export class Enemy extends Entity {
@@ -424,6 +450,20 @@ export class Enemy extends Entity {
 
   hurt(g, amount, fromX, fromY, kb = 130) {
     if (this.hp <= 0) return;
+    // たてもちは 向いている側からの攻撃を はじく
+    if (this.def.ai === 'guard') {
+      const [vx, vy] = DIR_VEC[this.dir];
+      const ax = fromX - this.x, ay = fromY - this.y;
+      const l = Math.hypot(ax, ay) || 1;
+      if ((ax / l) * vx + (ay / l) * vy > 0.35) {
+        this.flash = 0.08;
+        this.aggro = true;
+        sfx('error');
+        FX.burst(this.x + vx * 8, this.y - 6 + vy * 6, 6, [PAL.y, PAL.x], { spMax: 60 });
+        FX.floatText(this.x, this.y - 16, 'カン', PAL.x, { size: 7 });
+        return;
+      }
+    }
     this.hp -= amount;
     this.flash = 0.14;
     this.aggro = true;
@@ -454,6 +494,19 @@ export class Enemy extends Entity {
       for (let i = 0; i < 3; i++) g.spawnPickup(this.x, this.y, 'heart');
       g.onBossDefeated?.(this);
     } else if (rng() < 0.05) g.spawnPickup(this.x, this.y, 'gem');
+
+    // ひとだまは 二つに わかれる（小さいのは わかれない）
+    if (this.def.split && !this.small) {
+      for (let i = 0; i < 2; i++) {
+        const a = rng.angle();
+        const e = g.spawnEnemy(this.x + Math.cos(a) * 10, this.y + Math.sin(a) * 10, this.kind, this.level);
+        if (e) {
+          e.small = true; e.maxHp = Math.max(1, Math.round(this.maxHp * 0.5)); e.hp = e.maxHp;
+          e.scale = 0.75; e.hw = 4; e.hh = 3; e.aggro = true;
+        }
+      }
+      sfx('spawn');
+    }
   }
 
   update(dt, g) {
@@ -464,7 +517,7 @@ export class Enemy extends Entity {
     this.cd -= dt;
     const p = g.player;
     const d = dist(this.x, this.y, p.x, p.y);
-    if (!this.aggro && d < (this.boss ? 200 : 92)) this.aggro = true;
+    if (!this.aggro && d < (this.boss ? 200 : 92) && this.def.ai !== 'ambush') this.aggro = true;
     if (this.aggro && d > 260 && !this.boss) this.aggro = false;
 
     if (this.stun <= 0 && p.hp > 0) this[this.def.ai](dt, g, p, d);
@@ -577,6 +630,153 @@ export class Enemy extends Entity {
     this.moveBy(g, this.vx * dt, this.vy * dt);
   }
 
+  // --- 追加の敵の AI ---
+
+  /** ものまね鳥：空で待って、まっすぐ 急降下してくる */
+  diver(dt, g, p, d) {
+    this.wobble += dt * 5;
+    if (this.state === 'dive') {
+      this.z = Math.max(0, this.z - 46 * dt);
+      this.moveBy(g, this.vx * dt, this.vy * dt, true);
+      if (this.t > this.stateEnd) { this.state = 'up'; this.stateEnd = this.t + 0.9; sfx('swing'); }
+      return;
+    }
+    if (this.state === 'up') {
+      this.z = Math.min(20, this.z + 40 * dt);
+      const ax = this.home.x - this.x, ay = this.home.y - this.y;
+      const l = Math.hypot(ax, ay) || 1;
+      this.moveBy(g, (ax / l) * this.speed * 0.7 * dt, (ay / l) * this.speed * 0.7 * dt, true);
+      if (this.t > this.stateEnd) { this.state = 'idle'; this.cd = rng.range(0.6, 1.4); }
+      return;
+    }
+    // 空をまわりながら ねらう
+    this.z = 18 + Math.sin(this.wobble) * 3;
+    const a = this.t * 1.1 + this.wobble * 0.2;
+    const tx = (this.aggro ? p.x : this.home.x) + Math.cos(a) * 34;
+    const ty = (this.aggro ? p.y : this.home.y) + Math.sin(a) * 26;
+    const ax = tx - this.x, ay = ty - this.y;
+    const l = Math.hypot(ax, ay) || 1;
+    this.vx = lerp(this.vx, (ax / l) * this.speed, 0.08);
+    this.vy = lerp(this.vy, (ay / l) * this.speed, 0.08);
+    this.moveBy(g, this.vx * dt, this.vy * dt, true);
+    this.dir = dirFromVec(this.vx, this.vy);
+    if (this.aggro && this.cd <= 0 && d < 90) {
+      this.state = 'dive'; this.stateEnd = this.t + 0.55;
+      const ang = Math.atan2(p.y - this.y, p.x - this.x);
+      this.vx = Math.cos(ang) * this.speed * 2.6;
+      this.vy = Math.sin(ang) * this.speed * 2.6;
+      this.dir = dirFromVec(this.vx, this.vy);
+      sfx('dash');
+    }
+  }
+
+  /** とげまり：まっすぐ ころがって、壁で はねかえる */
+  roller(dt, g, p, d) {
+    if (!this.rolling) {
+      if (!this.aggro) return;
+      const a = Math.atan2(p.y - this.y, p.x - this.x);
+      this.vx = Math.cos(a) * this.speed; this.vy = Math.sin(a) * this.speed;
+      this.rolling = true;
+    }
+    const bx = this.x, by = this.y;
+    this.moveBy(g, this.vx * dt, 0);
+    if (Math.abs(this.x - bx) < Math.abs(this.vx * dt) * 0.6) { this.vx = -this.vx; sfx('hit'); }
+    this.moveBy(g, 0, this.vy * dt);
+    if (Math.abs(this.y - by) < Math.abs(this.vy * dt) * 0.6) { this.vy = -this.vy; sfx('hit'); }
+    // ときどき ねらいなおす
+    if (this.cd <= 0) {
+      this.cd = rng.range(1.6, 2.8);
+      const a = Math.atan2(p.y - this.y, p.x - this.x) + rng.range(-0.5, 0.5);
+      const sp = Math.hypot(this.vx, this.vy) || this.speed;
+      this.vx = Math.cos(a) * sp; this.vy = Math.sin(a) * sp;
+    }
+    if (rng() < dt * 6) FX.dust(this.x, this.y, 1);
+  }
+
+  /** ねぼけ株：近づくまで ただの切り株。起きたら 追ってくる */
+  ambush(dt, g, p, d) {
+    if (!this.awake) {
+      this.aggro = false;
+      if (d < 34) {
+        this.awake = true; this.aggro = true;
+        sfx('spawn'); FX.dust(this.x, this.y, 6);
+        FX.floatText(this.x, this.y - 16, '！', PAL.o, { size: 9 });
+      }
+      return;
+    }
+    this.chaser(dt, g, p, d);
+  }
+
+  /** ひとだま：ふわふわ ただよう。たおすと 二つに わかれる */
+  drifter(dt, g, p, d) {
+    this.wobble += dt * 3;
+    this.z = 7 + Math.sin(this.wobble) * 4;
+    const a = this.aggro ? Math.atan2(p.y - this.y, p.x - this.x) : this.wobble * 0.6;
+    const sp = this.speed * (this.aggro ? 1 : 0.4);
+    this.vx = lerp(this.vx, Math.cos(a) * sp + Math.cos(this.wobble * 2.3) * 22, 0.05);
+    this.vy = lerp(this.vy, Math.sin(a) * sp + Math.sin(this.wobble * 1.9) * 16, 0.05);
+    this.moveBy(g, this.vx * dt, this.vy * dt, true);
+  }
+
+  /** こぼうし：すっと消えて、プレイヤーのそばに 出る */
+  blinker(dt, g, p, d) {
+    if (this.fade == null) this.fade = 1;
+    if (this.state === 'gone') {
+      this.fade = Math.max(0, this.fade - dt * 5);
+      if (this.t > this.stateEnd) {
+        const a = rng.angle();
+        const r = 26 + rng() * 10;
+        const nx = p.x + Math.cos(a) * r, ny = p.y + Math.sin(a) * r;
+        if (!g.level.hits(nx, ny, this.hw, this.hh)) { this.x = nx; this.y = ny; }
+        this.state = 'idle'; this.cd = rng.range(1.4, 2.4);
+        sfx('magic');
+        FX.ring(this.x, this.y - 6, { r0: 2, r1: 16, life: 0.3, color: PAL.s });
+      }
+      return;
+    }
+    this.fade = Math.min(1, this.fade + dt * 5);
+    this.dir = dirFromVec(p.x - this.x, p.y - this.y);
+    if (this.aggro) {
+      const a = Math.atan2(p.y - this.y, p.x - this.x);
+      this.vx = Math.cos(a) * this.speed; this.vy = Math.sin(a) * this.speed;
+      this.moveBy(g, this.vx * dt, this.vy * dt);
+    }
+    if (this.aggro && this.cd <= 0 && d > 20) {
+      this.state = 'gone'; this.stateEnd = this.t + 0.45;
+      FX.burst(this.x, this.y - 6, 8, [PAL['1'], PAL.s], { spMax: 40 });
+    }
+  }
+
+  /** なきぼう：のろいが、あるいたあとに 水たまりを おとす */
+  leaker(dt, g, p, d) {
+    this.chaser(dt, g, p, d);
+    if (this.aggro && this.cd <= 0) {
+      this.cd = rng.range(0.8, 1.4);
+      g.hazards.push({ kind: 'puddle', x: this.x, y: this.y, t: 0, warn: 0.35, life: 5.2, dmg: 1, r: 9, done: false });
+      sfx('splash');
+    }
+  }
+
+  /** たてもち：前からの攻撃を たてで はじく。うしろに回れ */
+  guard(dt, g, p, d) {
+    this.dir = dirFromVec(p.x - this.x, p.y - this.y);
+    if (!this.aggro) return;
+    const a = Math.atan2(p.y - this.y, p.x - this.x);
+    // ゆっくり近づいて、たまに たてで押してくる
+    if (this.state === 'bash') {
+      this.moveBy(g, this.vx * dt, this.vy * dt);
+      if (this.t > this.stateEnd) { this.state = 'idle'; this.cd = rng.range(1.6, 2.6); }
+      return;
+    }
+    this.vx = Math.cos(a) * this.speed; this.vy = Math.sin(a) * this.speed;
+    this.moveBy(g, this.vx * dt, this.vy * dt);
+    if (this.cd <= 0 && d < 40) {
+      this.state = 'bash'; this.stateEnd = this.t + 0.45;
+      this.vx = Math.cos(a) * this.speed * 3.4; this.vy = Math.sin(a) * this.speed * 3.4;
+      sfx('dash');
+    }
+  }
+
   aiBoss(dt, g, p, d) {
     const hpr = this.hp / this.maxHp;
     if (this.state === 'idle') {
@@ -634,14 +834,18 @@ export class Enemy extends Entity {
     this.drawShadow(ctx);
     let spr;
     const frames = (this.kind === 'wolf' && (this.dir === 1)) ? SPR.wolfL : SPR[this.def.spr];
-    const f = Math.floor(this.t * (this.state === 'dash' || this.state === 'charge' ? 12 : 5)) % frames.length;
+    let f = Math.floor(this.t * (this.state === 'dash' || this.state === 'charge' ? 12 : 5)) % frames.length;
+    if (this.def.ai === 'ambush') f = this.awake ? 1 : 0;          // 起きるまで 目をあけない
+    if (this.def.ai === 'roller') f = Math.floor(this.t * 14) % frames.length;
     spr = frames[f];
+    if (this.fade != null && this.fade < 1) ctx.globalAlpha = this.fade;
     const tel = (this.state === 'wind');
     if (tel && Math.floor(this.t * 20) % 2 === 0) {
       this.blit(ctx, spr, 0, 0, this.scale, true);
     } else {
       this.blit(ctx, spr, 0, 0, this.scale, this.flash > 0);
     }
+    ctx.globalAlpha = 1;
     if (this.boss) drawBossBarWorld(ctx, this);
   }
 }

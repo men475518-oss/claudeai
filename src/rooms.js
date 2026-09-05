@@ -369,12 +369,18 @@ export function buildRoomLevel(world, room) {
 
 const MOB_POOL = {
   home: [], town: [],
-  glade: ['slime'], crates: ['slime', 'bat'],
-  forest: ['slime', 'spore', 'wolf'], mushroom: ['spore', 'slime'],
-  rocks: ['bat', 'skeleton'], pool: ['slime', 'bat'],
-  bridge: ['bat', 'wolf'], graveyard: ['skeleton', 'bat'],
-  ruins: ['skeleton', 'wolf'], ash: ['skeleton', 'bat', 'wolf'],
-  playground: ['slime', 'bat'], library: ['spore', 'skeleton'],
+  glade: ['slime', 'thorn', 'crow'],
+  crates: ['slime', 'bat', 'stump'],
+  forest: ['slime', 'spore', 'wolf', 'stump', 'crow'],
+  mushroom: ['spore', 'slime', 'weeper'],
+  rocks: ['bat', 'skeleton', 'thorn', 'shielder'],
+  pool: ['slime', 'bat', 'weeper'],
+  bridge: ['bat', 'wolf', 'crow'],
+  graveyard: ['skeleton', 'bat', 'wisp', 'weeper'],
+  ruins: ['skeleton', 'wolf', 'shielder', 'hatling'],
+  ash: ['skeleton', 'bat', 'wolf', 'wisp', 'hatling'],
+  playground: ['slime', 'bat', 'thorn', 'stump'],
+  library: ['spore', 'skeleton', 'hatling', 'wisp'],
 };
 
 /** 島ごとの飾りつけ */
@@ -385,6 +391,8 @@ function decorate(lv, room, rng, put, take, isGround, W, H, cx, cy) {
   // どの島にも すこしだけ草と花
   scatter(O.TUFT, 4 + rng.int(5));
   scatter(O.FLOWER, 1 + rng.int(3));
+  // 段ボールは 回復のみなもと。町と家いがいには 必ず ひとつ以上
+  if (k !== 'town' && k !== 'home') scatter(O.CRATE, 1 + rng.int(2));
 
   if (k === 'forest') { scatter(O.TREE, 7 + rng.int(5)); scatter(O.PINE, 2 + rng.int(3)); scatter(O.BUSH, 3); }
   else if (k === 'glade') { scatter(O.TREE, 1 + rng.int(2)); scatter(O.BUSH, 2 + rng.int(3)); }

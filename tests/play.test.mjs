@@ -66,6 +66,11 @@ const tapButton = async (id) => {
   if (!b) throw new Error(`ボタン ${id} が出ていません`);
   await page.mouse.click(b.x, b.y);
 };
+/** 画面のまんなかを ふつうにタップする（＝斬る／調べる）*/
+const tapWorld = async () => {
+  const p = await page.evaluate(() => ({ x: window.__game.view.cssW / 2, y: window.__game.view.cssH * 0.55 }));
+  await page.mouse.click(p.x, p.y);
+};
 /** 条件が満たされるまで待つ（描画フレームに依存する判定用） */
 const until = async (fn, ms = 3000) => {
   const t0 = Date.now();
@@ -285,11 +290,91 @@ check('新規ゲームが はじまる', await page.evaluate(() => window.__game
   await wait(700);
   await page.evaluate(() => { const g = window.__game; if (g.hatman) { g.player.x = g.hatman.x; g.player.y = g.hatman.y + 16; } });
   await wait(300);
-  await tapButton('a');
+  await tapWorld();
   await wait(300);
   check('帽子の人は 吹き出しで しゃべる',
     await page.evaluate(() => window.__game.bubbles.length > 0 && !window.__game.ui.dialog.active));
   await wait(600);
+}
+
+// --- 3.5 増えた敵：ぜんぶ動いて、たてもちは 前からは きかない ------------------
+{
+  const kinds = ['crow', 'thorn', 'stump', 'wisp', 'hatling', 'weeper', 'shielder'];
+  const r = await page.evaluate(async (kinds) => {
+    const g = window.__game;
+    const sleep = (ms) => new Promise(res => setTimeout(res, ms));
+    g.enemies.length = 0; g.hazards.length = 0;
+    const p = g.player;
+    p.maxHp = 90; p.hp = 90; p.invuln = 9999;
+    for (const k of kinds) g.spawnEnemy(p.x + 40, p.y + 40, k, 1).aggro = true;
+    const start = g.enemies.map(e => ({ x: e.x, y: e.y }));
+    await sleep(2200);
+    const moved = g.enemies.filter((e, i) => Math.hypot(e.x - start[i].x, e.y - start[i].y) > 2).length;
+    const names = g.enemies.map(e => e.def.name);
+    // たてもち：正面からは はじく／うしろからは 通る
+    const sh = g.enemies.find(e => e.kind === 'shielder');
+    sh.dir = 0;                                  // 下を向かせる
+    const hp0 = sh.hp;
+    sh.hurt(g, 3, sh.x, sh.y + 30);              // 正面（下）から
+    const front = sh.hp;
+    sh.hurt(g, 3, sh.x, sh.y - 30);              // うしろ（上）から
+    const back = sh.hp;
+    // ひとだま：たおすと 二つに わかれる
+    const wi = g.enemies.find(e => e.kind === 'wisp');
+    const before = g.enemies.length;
+    wi.hurt(g, 99, wi.x + 10, wi.y);
+    await sleep(60);
+    const split = g.enemies.filter(e => e.kind === 'wisp' && !e.dead).length;
+    // なきぼうは 水たまりを のこす
+    await sleep(1400);
+    const puddle = g.hazards.some(h => h.kind === 'puddle');
+    g.enemies.length = 0; g.hazards.length = 0;
+    return { count: kinds.length, moved, names, blocked: front === hp0, hurtFromBack: back < front, split, before, puddle };
+  }, kinds);
+  check('増えた敵が それぞれ 動く', r.moved >= 5, `${r.moved}/${r.count} ・ ${r.names.join(' ')}`);
+  check('たてもちは 前からは はじき、うしろからは 効く', r.blocked && r.hurtFromBack);
+  check('ひとだまは たおすと 二つに わかれる', r.split >= 2, `${r.split} 体`);
+  check('なきぼうは あるいたあとに 水たまりを のこす', r.puddle);
+}
+
+// --- 3.6 段ボールから 回復が出る ----------------------------------------------
+{
+  const r = await page.evaluate(() => {
+    const g = window.__game, lv = g.level, p = g.player;
+    const ox = p.x, oy = p.y;
+    p.x = -900; p.y = -900;
+    const t = { heart: 0, potion: 0, other: 0 };
+    for (let n = 0; n < 120; n++) {
+      lv.setO(3, 3, 31);
+      lv.objHp.set(lv.idx(3, 3), 1);
+      g.pickups.length = 0;
+      g.dev.damageObject(3, 3, 9);
+      for (const q of g.pickups) t[q.kind === 'heart' ? 'heart' : q.kind === 'potion' ? 'potion' : 'other']++;
+    }
+    lv.setO(3, 3, 0);
+    g.pickups.length = 0;
+    p.x = ox; p.y = oy;
+    return t;
+  });
+  check('段ボールを 割ると だいたい 回復が 出る',
+    r.heart >= 60 && r.potion > 0, `ハート${r.heart} ポーション${r.potion} その他${r.other}`);
+}
+
+// --- 3.7 ポーションは 力つきる寸前に ひとりでに 効く ---------------------------
+{
+  const r = await page.evaluate(() => {
+    const g = window.__game, p = g.player;
+    p.potions = 1; p.maxHp = 12; p.hp = 2; p.invuln = 0; p.iframe = 0; p.spawnGuard = 0;
+    p.hurt(g, 99, p.x + 20, p.y);
+    const saved = { hp: p.hp, potions: p.potions };
+    p.potions = 0; p.invuln = 0; p.iframe = 0;
+    p.hurt(g, 99, p.x + 20, p.y);
+    const dead = p.hp <= 0;
+    p.hp = p.maxHp; p.deadT = 0;
+    return { ...saved, dead };
+  });
+  check('ポーションは 力つきる寸前に ひとりでに 効く',
+    r.hp > 0 && r.potions === 0 && r.dead, `HP ${r.hp}`);
 }
 
 // --- 4. 調べる：会話が開き、剣は振らない ------------------------------------
@@ -306,7 +391,7 @@ check('新規ゲームが はじまる', await page.evaluate(() => window.__game
     g.player.x = sp.x * 16 + 8; g.player.y = (sp.y + 1) * 16 + 10; g.player.dir = 3;
   });
   await wait(300);
-  await tapButton('a');
+  await tapWorld();
   await wait(200);
   const r = await page.evaluate(() => ({
     attack: window.__game.player.attack,
@@ -317,25 +402,30 @@ check('新規ゲームが はじまる', await page.evaluate(() => window.__game
   await clearDialogs();
 }
 
-// --- 5. 爆弾でひび割れた壁と草を壊す ------------------------------------------
+// --- 5. ひび割れをタップすると 爆弾を しかける（ボタンは ない）-----------------
 {
   await page.evaluate(() => {
     const g = window.__game;
-    const tx = g.player.tx + 2, ty = g.player.ty;
+    const tx = g.player.tx, ty = g.player.ty - 2;
     for (let x = tx - 1; x <= tx + 1; x++) for (let y = ty - 1; y <= ty + 1; y++) g.level.setO(x, y, 0);
-    g.level.setO(tx, ty, 3);                        // 草むら
+    g.level.setO(tx, ty, 19);                       // ひび割れ
+    g.level.setO(tx + 1, ty, 3);                    // となりに 草むら
     window.__t = { tx, ty };
-    g.player.bombs = 3; g.player.item = 'bomb'; g.player.dir = 2;
+    g.player.x = tx * 16 + 8; g.player.y = (ty + 1) * 16 + 10; g.player.dir = 3;
+    g.player.bombs = 3;
     g.player.maxHp = 30; g.player.hp = 30; g.player.invuln = 99;
   });
-  await wait(200);
-  await tapButton('b');
-  await wait(2400);
+  await wait(250);
+  const seen = await page.evaluate(() => window.__game.interact && window.__game.interact.type);
+  await tapWorld();
+  await wait(2600);
   const r = await page.evaluate(() => ({
     used: 3 - window.__game.player.bombs,
     gone: window.__game.level.o(window.__t.tx, window.__t.ty) === 0,
+    grass: window.__game.level.o(window.__t.tx + 1, window.__t.ty) === 0,
   }));
-  check('Ｂボタンで爆弾を置き、まわりを壊す', r.used === 1 && r.gone);
+  check('ひび割れをタップすると 爆弾を しかけ、壁と草が こわれる',
+    seen === 'crack' && r.used === 1 && r.gone && r.grass);
 }
 
 // --- 6. 村人の救出 → 建物を建てる ---------------------------------------------
@@ -407,10 +497,32 @@ check('新規ゲームが はじまる', await page.evaluate(() => window.__game
     r2.kind === 'arena' && r2.boss && r2.hp > 0, r2.name);
 
   // 前ぶれ → 手が降りてくる → 殴れる
-  const r3 = await until(() => window.__game.enemies.some(e => e.isPart), 12000);
+  const r3 = await until(() => window.__game.enemies.some(e => e.isPart), 20000);
   check('ボスが 地面に 手を たたきつけてくる', r3);
   const r4 = await until(() => window.__game.enemies.some(e => e.isPart && e.state === 'planted'), 6000);
   check('ついた手は 殴れる状態になる', r4);
+
+  // 腕だけでなく、いろいろな技を 出してくるか
+  const moves = await page.evaluate(async () => {
+    const g = window.__game;
+    const sleep = (ms) => new Promise(res => setTimeout(res, ms));
+    const seen = new Set();
+    g.player.maxHp = 90; g.player.hp = 90; g.player.invuln = 9999;
+    for (let i = 0; i < 40; i++) {
+      g.boss.phase = 3;
+      g.boss.cd = 0;
+      await sleep(120);
+      if (g.boss.lastMove) seen.add(g.boss.lastMove);
+      for (const h of g.hazards) seen.add('hz:' + h.kind);
+      if (g.enemies.some(e => !e.isPart)) seen.add('minion');
+    }
+    g.hazards.length = 0;
+    for (const e of g.enemies) if (!e.isPart) e.dead = true;
+    return [...seen];
+  });
+  const armless = ['gaze', 'spikes', 'wave', 'call', 'spit', 'daggers'];
+  check('ボスは 手を たたきつける以外の技も 出してくる',
+    armless.filter(m => moves.includes(m)).length >= 4, moves.join(' '));
 
   const r5 = await page.evaluate(async () => {
     const g = window.__game;
@@ -533,11 +645,12 @@ await ctx.close();
         }),
       };
     });
-    const good = v.fits && v.inside && ['a', 'b', 'menu', 'map'].every(id => v.ids.includes(id));
+    const good = v.fits && v.inside && ['menu', 'map'].every(id => v.ids.includes(id))
+      && !v.ids.includes('a') && !v.ids.includes('b');
     if (!good) { ok = false; detail.push(`${w}x${h}`); }
     await c.close();
   }
-  check('どの画面サイズでも収まり、操作ボタンが画面内にある', ok, detail.join(' '));
+  check('どの画面サイズでも収まり、剣や道具のボタンが 出ていない', ok, detail.join(' '));
 }
 
 check('実行中に例外が出ていない', errors.length === 0, errors.slice(0, 3).join(' | '));

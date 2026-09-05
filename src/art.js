@@ -225,6 +225,13 @@ export function buildArt() {
   SPR.wolf = mob(D.WOLF);
   SPR.wolfL = SPR.wolf.map(flipH);
   SPR.warden = mob(D.WARDEN);
+  SPR.crow = mob(D.CROW);
+  SPR.thorn = mob(D.THORN);
+  SPR.stump = mob(D.STUMP);
+  SPR.wisp = mob(D.WISP);
+  SPR.hatling = mob(D.HATLING);
+  SPR.weeper = mob(D.WEEPER);
+  SPR.shielder = mob(D.SHIELDER);
 
   // 村人：色替え × 4 方向
   SPR.villagers = D.VILLAGER_PALETTES.map(pal => ({

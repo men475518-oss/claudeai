@@ -390,7 +390,7 @@ export function drawHud(ctx, g) {
   if (bs) {
     const w2 = Math.min(W - 44 * S, 268 * S), h2 = 11 * S;
     const x2 = (W - w2) / 2;
-    const y2 = view.cssH - ui.padBottom - 124 * S;
+    const y2 = view.cssH - ui.padBottom - 58 * S;
     txt(ctx, bs.name || bs.def.name, x2 + w2 / 2, y2 - 19 * S,
       { size: 12.5 * S, align: 'center', color: '#f6e3e3', weight: 700 });
     ctx.fillStyle = 'rgba(0,0,0,0.5)';
@@ -476,21 +476,12 @@ export function hudButtonLayout() {
 }
 
 export function controlLayout() {
-  const S = ui.S, W = view.cssW, H = view.cssH;
-  const ay = H - ui.padBottom - 62 * S;
-  return {
-    a: { x: W - 56 * S, y: ay, r: 38 * S },
-    b: { x: W - 122 * S, y: ay + 18 * S, r: 26 * S },
-    swap: { x: W - 122 * S, y: ay - 26 * S, r: 15 * S },
-    S,
-  };
+  // ボタンは もう置かない（ドラッグで歩き、タップで斬る）。
+  return { S: ui.S };
 }
 
 export function drawTouchControls(ctx, g) {
   const S = ui.S;
-  const L = controlLayout();
-  const p = g.player;
-
   // フローティングスティック
   if (input.stick.active && !input.gStill) {
     const s = input.stick;
@@ -518,63 +509,6 @@ export function drawTouchControls(ctx, g) {
     ctx.globalAlpha = 1;
   }
 
-  if (!ui.showControls) return;
-
-  // A ボタン
-  const aDown = input.a;
-  ctx.globalAlpha = aDown ? 0.95 : 0.62;
-  ctx.beginPath(); ctx.arc(L.a.x, L.a.y, L.a.r, 0, TAU);
-  ctx.fillStyle = aDown ? '#7a4750' : 'rgba(30,22,34,0.8)'; ctx.fill();
-  ctx.strokeStyle = UI.red; ctx.lineWidth = 2.4 * S; ctx.stroke();
-  ctx.globalAlpha = 1;
-  drawSwordIcon(ctx, L.a.x, L.a.y, 16 * S);
-
-  // B ボタン（道具）
-  const item = p.item;
-  const cnt = item === 'bomb' ? p.bombs : item === 'potion' ? p.potions : p.mp;
-  ctx.globalAlpha = input.b ? 0.95 : 0.55;
-  ctx.beginPath(); ctx.arc(L.b.x, L.b.y, L.b.r, 0, TAU);
-  ctx.fillStyle = input.b ? '#4a5a7a' : 'rgba(30,22,34,0.8)'; ctx.fill();
-  ctx.strokeStyle = PAL.j; ctx.lineWidth = 2.2 * S; ctx.stroke();
-  ctx.globalAlpha = 1;
-  const iconOf = (k) => (k === 'bomb' ? SPR.bomb : k === 'potion' ? SPR.potion : SPR.gem);
-  sprite(ctx, iconOf(item), L.b.x - 10 * S, L.b.y - 12 * S, 2.4 * S);
-  txt(ctx, String(cnt), L.b.x + 16 * S, L.b.y + 4 * S, { size: 12 * S, align: 'right', color: cnt > 0 ? UI.ink : '#7c6f84' });
-
-  // 道具の切り替え（次の道具が小さく見えている）
-  const order = ['bomb', 'potion'];
-  if (p.magic) order.push('magic');
-  if (order.length > 1) {
-    const next = order[(order.indexOf(item) + 1) % order.length];
-    ctx.globalAlpha = 0.5;
-    ctx.beginPath(); ctx.arc(L.swap.x, L.swap.y, L.swap.r, 0, TAU);
-    ctx.fillStyle = 'rgba(30,22,34,0.8)'; ctx.fill();
-    ctx.strokeStyle = PAL.w; ctx.lineWidth = 1.6 * S; ctx.stroke();
-    ctx.globalAlpha = 0.85;
-    sprite(ctx, iconOf(next), L.swap.x - 6 * S, L.swap.y - 7 * S, 1.5 * S);
-    ctx.globalAlpha = 1;
-    // 循環をあらわす小さな矢印
-    ctx.strokeStyle = PAL.x; ctx.lineWidth = 1.2 * S;
-    ctx.beginPath();
-    ctx.arc(L.swap.x, L.swap.y, L.swap.r - 3 * S, -0.6, 1.6);
-    ctx.stroke();
-  }
-}
-
-function drawSwordIcon(ctx, cx, cy, r) {
-  const S = ui.S;
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(-Math.PI / 4);
-  ctx.fillStyle = PAL.x;
-  ctx.fillRect(-2 * S, -r, 4 * S, r * 1.5);
-  ctx.fillStyle = PAL.y;
-  ctx.fillRect(-2 * S, -r, 2 * S, r * 1.5);
-  ctx.fillStyle = PAL.s;
-  ctx.fillRect(-7 * S, r * 0.5, 14 * S, 3.5 * S);
-  ctx.fillStyle = PAL.d;
-  ctx.fillRect(-2.5 * S, r * 0.5, 5 * S, r * 0.45);
-  ctx.restore();
 }
 
 // --- マップ ----------------------------------------------------------------

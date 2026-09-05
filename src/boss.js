@@ -294,10 +294,15 @@ export class GiantBoss {
 
   pickMove(g) {
     const p = g.player;
-    const pool = ['slam', 'slam', 'spit'];
-    if (this.phase >= 2) pool.push('daggers', 'sweep', 'slam');
-    if (this.phase >= 3) pool.push('lunge', 'daggers', 'sweep');
-    const move = rng.pick(pool);
+    // 手だけに かたよらないよう 腕以外の技を 多めに。
+    // ただし「ついた手」は こちらが 殴れる ただ一つの機会なので、slam は 残しておく。
+    const pool = ['slam', 'slam', 'slam', 'spit', 'gaze', 'spikes', 'call'];
+    if (this.phase >= 2) pool.push('daggers', 'sweep', 'wave', 'gaze', 'spikes', 'slam', 'slam');
+    if (this.phase >= 3) pool.push('lunge', 'daggers', 'wave', 'call', 'spikes', 'sweep', 'slam');
+    // 腕以外の技は 続けて出さない（slam は 出てよい）
+    let move = rng.pick(pool);
+    for (let i = 0; i < 3 && move !== 'slam' && move === this.lastMove; i++) move = rng.pick(pool);
+    this.lastMove = move;
     const gap = this.phase === 1 ? rng.range(2.0, 2.8) : this.phase === 2 ? rng.range(1.5, 2.2) : rng.range(1.1, 1.7);
 
     if (move === 'slam') {
@@ -333,7 +338,111 @@ export class GiantBoss {
     } else if (move === 'lunge') {
       this.startLunge(g);
       this.cd = gap + 2.4;
+    } else if (move === 'gaze') {
+      this.startGaze(g);
+      this.cd = gap + 1.4;
+    } else if (move === 'spikes') {
+      this.startSpikes(g);
+      this.cd = gap + 1.0;
+    } else if (move === 'wave') {
+      this.startWave(g);
+      this.cd = gap + 1.2;
+    } else if (move === 'call') {
+      this.startCall(g);
+      this.cd = gap + 1.6;
     }
+  }
+
+  // --- にらみ（目からの光が 地面をなめる）---
+  startGaze(g) {
+    const p = g.player;
+    const W = g.level.w * TILE;
+    const top = HORIZON_Y + 26, bot = g.level.h * TILE - 26;
+    // 光は 目から出す（顔の描画と 同じ位置）
+    const side = p.x < this.cx ? -1 : 1;
+    const ex = this.headX + side * this.def.headW * 0.40;
+    const ey = this.headY - this.def.headH * 0.36;
+    const horizontal = rng() < 0.6;
+    const y = clamp(p.y + rng.range(-18, 18), top, bot);
+    const dir = p.x < this.cx ? 1 : -1;
+    const a = horizontal
+      ? { x0: dir > 0 ? 24 : W - 24, y0: y, x1: dir > 0 ? W - 24 : 24, y1: y }
+      : { x0: clamp(p.x + rng.range(-30, 30), 24, W - 24), y0: top, x1: clamp(p.x + rng.range(-30, 30), 24, W - 24), y1: bot };
+    say({ target: this.anchor, text: 'よく 見えるよ。', tone: 'boss', life: 1.4 });
+    g.hazards.push({
+      kind: 'beam', ...a, ex, ey, cx: a.x0, cy: a.y0,
+      t: 0, warn: 0.95, sweep: this.phase >= 3 ? 1.5 : 2.1, dmg: 2, r: 11, done: false,
+    });
+    sfx('magic');
+  }
+
+  // --- せりあがる とげ（プレイヤーを 囲む ように）---
+  startSpikes(g) {
+    const p = g.player;
+    const W = g.level.w * TILE, H = g.level.h * TILE;
+    const top = HORIZON_Y + 24;
+    say({ target: this.anchor, text: 'したを ごらん。', tone: 'boss', life: 1.3 });
+    const ring = rng() < 0.55;
+    if (ring) {
+      // 足もとを 囲む輪（ぬける すきまが ひとつ ある）
+      const n = 9 + this.phase;
+      const gapAt = rng.int(n);
+      const rad = 34;
+      for (let i = 0; i < n; i++) {
+        if (i === gapAt && this.phase < 3) continue;
+        const a = (i / n) * TAU;
+        g.hazards.push({
+          kind: 'spike', x: clamp(p.x + Math.cos(a) * rad, 18, W - 18),
+          y: clamp(p.y + Math.sin(a) * rad * 0.8, top, H - 18),
+          t: -i * 0.02, warn: 0.8, dmg: 2, r: 11, done: false,
+        });
+      }
+    } else {
+      // まっすぐ 走ってくる 一列
+      const a = Math.atan2(p.y - (HORIZON_Y + 20), p.x - this.cx);
+      const n = 7 + this.phase * 2;
+      for (let i = 0; i < n; i++) {
+        g.hazards.push({
+          kind: 'spike',
+          x: clamp(this.cx + Math.cos(a) * (26 + i * 17), 18, W - 18),
+          y: clamp(HORIZON_Y + 20 + Math.sin(a) * (26 + i * 17), top, H - 18),
+          t: -i * 0.07, warn: 0.55, dmg: 2, r: 11, done: false,
+        });
+      }
+    }
+    sfx('swingBig');
+  }
+
+  // --- うなり（ひろがる輪。輪の上だけ 痛い）---
+  startWave(g) {
+    const W = g.level.w * TILE;
+    const n = this.phase >= 3 ? 3 : 2;
+    say({ target: this.anchor, text: 'しずかに して。', tone: 'boss', life: 1.3 });
+    for (let i = 0; i < n; i++) {
+      g.hazards.push({
+        kind: 'wave', x: clamp(this.cx, 0, W), y: HORIZON_Y + 18,
+        r0: 18, r1: 230, band: 13, dur: 1.9, dmg: 2, t: -i * 0.55, done: false,
+      });
+    }
+    FX.shake(4, 0.4);
+    duckMusic(0.10, 1.0);
+  }
+
+  // --- よびよせ（口から こぼれてくる）---
+  startCall(g) {
+    const W = g.level.w * TILE;
+    const n = this.phase >= 3 ? 3 : 2;
+    say({ target: this.anchor, text: 'ひとりじゃ さみしいね。', tone: 'boss', life: 1.5 });
+    this.mouth = 1;
+    for (let i = 0; i < n; i++) {
+      const x = clamp(this.cx + rng.range(-56, 56), 26, W - 26);
+      const y = HORIZON_Y + 30 + rng.range(0, 16);
+      const kind = rng.pick(this.phase >= 2 ? ['bat', 'wisp', 'thorn', 'hatling'] : ['bat', 'slime', 'thorn']);
+      const e = g.spawnEnemy(x, y, kind, 2);
+      if (e) { e.aggro = true; e.stun = 0.3; }
+      FX.ring(x, y, { r0: 3, r1: 22, life: 0.35, color: '#cfe6d8' });
+    }
+    sfx('spawn');
   }
 
   // --- 短剣の雨 ---

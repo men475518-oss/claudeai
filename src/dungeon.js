@@ -5,9 +5,9 @@ import { Level, T, O } from './world.js';
 import { makeRng } from './util.js';
 
 const THEME = {
-  forest: { floor: T.FLOOR, wall: T.WALL, mobs: ['slime', 'spore', 'wolf'], boss: 'warden' },
-  cave:   { floor: T.STONE, wall: T.WALL, mobs: ['bat', 'slime', 'skeleton'], boss: 'warden' },
-  ruin:   { floor: T.FLOOR, wall: T.RUIN, mobs: ['skeleton', 'bat', 'wolf', 'spore'], boss: 'warden' },
+  forest: { floor: T.FLOOR, wall: T.WALL, mobs: ['slime', 'spore', 'wolf', 'stump', 'thorn'], boss: 'warden' },
+  cave:   { floor: T.STONE, wall: T.WALL, mobs: ['bat', 'slime', 'skeleton', 'wisp', 'shielder'], boss: 'warden' },
+  ruin:   { floor: T.FLOOR, wall: T.RUIN, mobs: ['skeleton', 'bat', 'wolf', 'spore', 'hatling', 'weeper'], boss: 'warden' },
 };
 
 function carveRoom(lv, r, floor) {
@@ -147,6 +147,8 @@ export function generateDungeon(def, playerLevel = 1) {
       }, 1);
     }
     placeIn(r, (x, y) => { lv.setO(x, y, O.POT); return true; }, rng.irange(0, 3));
+    // 段ボール（中身は だいたい 回復）
+    placeIn(r, (x, y) => { lv.setO(x, y, O.CRATE); return true; }, rng.irange(1, 2));
     // 灯り
     if (rng() < 0.8) {
       lv.setO(r.x + 1, r.y + 1, O.TORCH);

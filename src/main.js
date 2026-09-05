@@ -496,14 +496,8 @@ function updatePlay(dt) {
     const d = UIx.registerDialogButtons();
     if (d) btns.push(...d);
   } else {
-    const L = UIx.controlLayout();
-    if (UIx.ui.showControls) {
-      const order = ['bomb', 'potion'];
-      if (g.player.magic) order.push('magic');
-      if (order.length > 1) btns.push({ id: 'swap', x: L.swap.x, y: L.swap.y, r: L.swap.r });
-      btns.push({ id: 'b', x: L.b.x, y: L.b.y, r: L.b.r });
-      btns.push({ id: 'a', x: L.a.x, y: L.a.y, r: L.a.r });
-    }
+    // 剣・爆弾・ポーションのボタンは 置かない。
+    // 歩くのは ドラッグ、斬るのは タップ、道具は 使う場所で 自動。
     const hb = UIx.hudButtonLayout();
     btns.push({ id: 'menu', x: hb.menu.x, y: hb.menu.y, r: hb.menu.r });
     btns.push({ id: 'map', x: hb.map.x, y: hb.map.y, r: hb.map.r });
@@ -535,7 +529,6 @@ function updatePlay(dt) {
   } else {
     if (pressed.has('menu') || input.menuPressed) { openPauseMenu(); }
     else if (pressed.has('map') || input.mapPressed) { g.mapOpen = true; UIx.invalidateMap(); sfx('ui'); clearHeld(); }
-    else if (pressed.has('swap')) { cycleItem(); sfx('ui'); }
   }
 
   // --- ゲーム進行 ---
@@ -601,13 +594,13 @@ function simulate(dt) {
       else if (idle && p.cooldown <= 0) p.startAttack(false);
     }
     // 片手ジェスチャで ためきって離した
-    if (input.gCharge && idle) p.startAttack(true);
+    if (input.gCharge && idle) p.startAttack(true, g);
 
     // Ａボタン長押しの「ため」（振り終わってから貯まりはじめる）
     // ※ 離した瞬間の判定を先に見ること。あとだと charge が 0 に戻ってしまう。
     const canSpin = p.attack <= 0 && p.spin <= 0;
     if (input.aReleased) {
-      if (p.charge > PLAYER.chargeTime && canSpin) p.startAttack(true);
+      if (p.charge > PLAYER.chargeTime && canSpin) p.startAttack(true, g);
       p.charge = 0;
     } else if (input.a && canSpin) {
       const before = p.charge;
@@ -626,7 +619,6 @@ function simulate(dt) {
       p.startRoll(dx, dy);
     }
 
-    if (input.bPressed) useItem();
   } else { g.interact = null; p.charge = 0; }
 
   p.update(dt, g);
@@ -714,10 +706,17 @@ function damageObject(x, y, amount) {
   FX.burst(cx, cy, 10, id === O.BUSH ? [PAL.a, PAL['9'], PAL.b] : id === O.CAGE ? [PAL.u, PAL.c] : [PAL.e, PAL.f, PAL.d]);
   FX.shake(1.5, 0.12);
   const rng = Math.random();
-  if (id === O.BUSH || id === O.POT) {
+  if (id === O.CRATE) {
+    // 段ボールの中身は だいたい 回復。ボタンが ないぶん ここで まかなう。
+    if (rng < 0.52) g.spawnPickup(cx, cy, 'heart');
+    else if (rng < 0.70) { g.spawnPickup(cx, cy, 'heart'); g.spawnPickup(cx + 5, cy, 'heart'); }
+    else if (rng < 0.82) g.spawnPickup(cx, cy, 'potion');
+    else if (rng < 0.92) g.spawnPickup(cx, cy, 'bomb');
+    else g.spawnPickup(cx, cy, 'coin', 3);
+  } else if (id === O.BUSH || id === O.POT) {
     if (rng < 0.24) g.spawnPickup(cx, cy, 'coin');
-    else if (rng < 0.32) g.spawnPickup(cx, cy, 'heart');
-    else if (rng < 0.35) g.spawnPickup(cx, cy, 'bomb');
+    else if (rng < 0.38) g.spawnPickup(cx, cy, 'heart');
+    else if (rng < 0.42) g.spawnPickup(cx, cy, 'bomb');
   } else if (id === O.CAGE) {
     freeVillager(x, y);
   } else if (id === O.CRYSTAL) {
@@ -795,6 +794,7 @@ function findInteract() {
     if (id === O.VENDING) return { type: 'vending', x: x * TILE + 8, y: y * TILE - 6, tx: x, ty: y };
     if (id === O.SHRINE) return { type: 'shrine', x: x * TILE + 8, y: y * TILE - 4, tx: x, ty: y };
     if (id === O.RELIC) return { type: 'relic', x: x * TILE + 8, y: y * TILE - 4, tx: x, ty: y };
+    if (id === O.CRACK) return { type: 'crack', x: x * TILE + 8, y: y * TILE - 4, tx: x, ty: y };
   }
   return null;
 }
@@ -909,6 +909,7 @@ function doInteract(t) {
       });
       break;
     }
+    case 'crack': plantBomb(t.tx, t.ty); break;
   }
 }
 
@@ -1035,31 +1036,16 @@ function checkTileTriggers() {
 }
 
 // ---------------------------------------------------------------------------
-function useItem() {
+/** ひび割れの前で 爆弾を しかける（ボタンは いらない）*/
+function plantBomb(tx, ty) {
   const p = g.player;
-  if (p.item === 'bomb') {
-    if (p.bombs <= 0) { sfx('error'); UIx.toast('爆弾が ない'); return; }
-    p.bombs--;
-    const [dx, dy] = DIR_VEC[p.dir];
-    const b = new Bomb(p.x + dx * 10, p.y + dy * 8, 6 + p.swordLv);
-    b.vx = dx * 40; b.vy = dy * 40;
-    g.bombs.push(b);
-    sfx('fuse');
-  } else if (p.item === 'potion') {
-    if (p.potions <= 0) { sfx('error'); UIx.toast('ポーションが ない'); return; }
-    if (p.hp >= p.maxHp) { sfx('error'); UIx.toast('元気いっぱいだ'); return; }
-    p.potions--;
-    p.heal(6);
-    sfx('heart');
-    FX.ring(p.x, p.y - 6, { r0: 3, r1: 22, life: 0.4, color: PAL.p });
-  } else if (p.item === 'magic') {
-    if (p.mp <= 0) { sfx('error'); UIx.toast('まりょくが たりない'); return; }
-    p.mp--;
-    const [dx, dy] = DIR_VEC[p.dir];
-    const a = Math.atan2(dy, dx);
-    g.spawnProjectile(p.x, p.y - 6, a, 130, p.dmg * 2, 'magic', true);
-    sfx('magic');
-  }
+  if (p.bombs <= 0) { sfx('error'); UIx.toast('爆弾が ない', 'ほら穴の 木箱を 割ってみよう'); return; }
+  p.bombs--;
+  const [dx, dy] = DIR_VEC[p.dir];
+  const b = new Bomb(p.x + dx * 10, p.y + dy * 8, 6 + p.swordLv);
+  g.bombs.push(b);
+  sfx('fuse');
+  UIx.toast('爆弾を しかけた', 'はなれて まとう');
 }
 
 // ---------------------------------------------------------------------------
@@ -1098,18 +1084,18 @@ function openPauseMenu() {
       { label: 'つづける', sub: 'ゲームにもどる', action: () => {} },
       { label: 'マップ', sub: `${g.level.name} ・ ${formatTime(g.playTime)}`, action: () => { g.mapOpen = true; UIx.invalidateMap(); } },
       {
-        label: 'どうぐ を きりかえ',
-        sub: `いま：${p.item === 'bomb' ? '爆弾' : p.item === 'potion' ? 'ポーション' : '魔法'}`,
-        action: () => cycleItem(),
+        label: 'もちもの',
+        sub: `爆弾 ${p.bombs} ・ ポーション ${p.potions}${p.magic ? ` ・ まりょく ${p.mp}` : ''}`,
+        action: () => UIx.toast('爆弾は ひび割れの前で', 'ポーションは 力つきる時に ひとりでに'),
       },
       {
         label: isMuted() ? '音を だす' : '音を けす', sub: 'BGM と 効果音',
         action: () => { toggleMute(); UIx.toast(isMuted() ? '音 OFF' : '音 ON'); },
       },
       {
-        label: UIx.ui.showControls ? 'ボタンを かくす' : 'ボタンを だす',
-        sub: 'ドラッグ移動＋タップ攻撃だけでも 遊べます',
-        action: () => { UIx.ui.showControls = !UIx.ui.showControls; },
+        label: 'あそびかた',
+        sub: 'ドラッグで歩く / タップで斬る / 長押しで回転斬り / 払って回避',
+        action: () => UIx.toast('画面を ドラッグ すると 歩きます', 'その場を タップ すると 斬ります'),
       },
       {
         label: 'セーブしてタイトルへ', sub: '進行状況は 保存されます',
@@ -1123,15 +1109,6 @@ function openPauseMenu() {
     ],
     footer: '外側をタップ / ✕ でとじる',
   });
-}
-
-function cycleItem() {
-  const p = g.player;
-  const order = ['bomb', 'potion'];
-  if (p.magic) order.push('magic');
-  const i = order.indexOf(p.item);
-  p.item = order[(i + 1) % order.length];
-  UIx.toast(`どうぐ：${p.item === 'bomb' ? '爆弾' : p.item === 'potion' ? 'ポーション' : '魔法'}`);
 }
 
 // --- 建物 ------------------------------------------------------------------
@@ -1229,8 +1206,8 @@ function openShopMenu(b) {
     title: 'よろず屋',
     sub: `所持 ${p.coins} コイン`,
     items: [
-      { label: 'ポーション', sub: 'ハート3つ 回復', icon: 'potion', cost: 25, disabled: p.coins < 25, action: buy(25, () => p.potions++, 'ポーションを 買った') },
-      { label: '爆弾 ×3', sub: '岩や 敵を ふきとばす', icon: 'bomb', cost: 30, disabled: p.coins < 30, action: buy(30, () => p.bombs += 3, '爆弾を 買った') },
+      { label: 'ポーション', sub: '力つきる時に ひとりでに 効く', icon: 'potion', cost: 25, disabled: p.coins < 25, action: buy(25, () => p.potions++, 'ポーションを 買った') },
+      { label: '爆弾 ×3', sub: 'ひび割れた壁の前で つかう', icon: 'bomb', cost: 30, disabled: p.coins < 30, action: buy(30, () => p.bombs += 3, '爆弾を 買った') },
       { label: 'カギ', sub: 'ダンジョンの 扉を 開ける', icon: 'key', cost: 80, disabled: p.coins < 80, action: buy(80, () => p.keys++, 'カギを 買った') },
       { label: 'やめる', action: () => {} },
     ],
@@ -1390,6 +1367,7 @@ g.objectiveText = function () {
 // 自動テスト用の入口（ブラウザからゲーム内部を叩けるようにしておく）
 g.ui = UIx;
 g.dev = {
+  SPR,
   enterLevel: (...a) => enterLevel(...a),
   enterRoom: (...a) => enterRoom(...a),
   travel: (d) => travel(d),
@@ -1417,7 +1395,9 @@ function drawInteractPrompt(ctx) {
   ctx.arc(sx, sy + bob, 13 * S, 0, Math.PI * 2);
   ctx.fillStyle = 'rgba(24,18,30,0.9)'; ctx.fill();
   ctx.strokeStyle = UI.gold; ctx.lineWidth = 2 * S; ctx.stroke();
-  UIx.txt(ctx, '！', sx, sy + bob - 9 * S, { size: 16 * S, align: 'center', color: UI.gold, outline: false });
+  const mark = t.type === 'crack' ? '爆' : '！';
+  UIx.txt(ctx, mark, sx, sy + bob - (mark === '爆' ? 7 : 9) * S,
+    { size: (mark === '爆' ? 13 : 16) * S, align: 'center', color: UI.gold, outline: false });
   ctx.restore();
 }
 
