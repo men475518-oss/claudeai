@@ -5,7 +5,7 @@
 // ---------------------------------------------------------------------------
 import { Level, T, O, BUILDINGS, applyBuildings } from './world.js';
 import { makeRng, clamp } from './util.js';
-import { makeIslandShape, rasterizeIsland, addPool, poolSpot } from './island.js';
+import { makeIslandShape, rasterizeIsland, addPool, poolSpot, keepClearTiles } from './island.js';
 
 export const OPP = { n: 's', s: 'n', e: 'w', w: 'e' };
 export const DV = { n: [0, -1], s: [0, 1], e: [1, 0], w: [-1, 0] };
@@ -260,7 +260,7 @@ export function buildRoomLevel(world, room) {
   if (flat) {
     buildings = world.buildings.filter(b => b.roomId === room.id);
     const plots = room.kind === 'home'
-      ? [{ dx: -2, dy: -5, w: 4, h: 3 }]
+      ? [{ dx: -4, dy: -5, w: 4, h: 3 }]
       : [{ dx: -6, dy: -6, w: 4, h: 3 }, { dx: -1, dy: -7, w: 4, h: 3 }, { dx: 3, dy: -5, w: 4, h: 3 },
          { dx: -6, dy: -1, w: 4, h: 3 }, { dx: 2, dy: 0, w: 4, h: 3 }, { dx: -3, dy: 4, w: 4, h: 3 }];
     buildings.forEach((b, i) => {
@@ -273,11 +273,13 @@ export function buildRoomLevel(world, room) {
   }
 
   // --- 中身 ---
+  // 首の中と 小道のまわりは あけておく（ふさぐと 通れなくなる）
+  const keepClear = keepClearTiles(shape, lv);
   const free = [];
   for (let y = 2; y < H - 2; y++)
     for (let x = 1; x < W - 1; x++) {
       if (!isGround(x, y) || lv.o(x, y) !== O.NONE) continue;
-      if (lv.g(x, y) === T.PATH) continue;
+      if (lv.g(x, y) === T.PATH || keepClear.has(y * W + x)) continue;
       // ふちギリギリに置くと 絵が島から はみ出して見える
       if (!isGround(x - 1, y) || !isGround(x + 1, y)
         || !isGround(x, y - 1) || !isGround(x, y + 1)) continue;
@@ -290,7 +292,7 @@ export function buildRoomLevel(world, room) {
     for (let y = 1; y < H - 1; y++)
       for (let x = 1; x < W - 1; x++) {
         if (!isGround(x, y) || lv.o(x, y) !== O.NONE) continue;
-        if (lv.g(x, y) === T.PATH) continue;
+        if (lv.g(x, y) === T.PATH || keepClear.has(y * W + x)) continue;
         if (Math.hypot(x - cx, y - cy) < 2.2) continue;
         if (free.some(f => f.x === x && f.y === y)) continue;
         free.push({ x, y, d: Math.hypot(x - cx, y - cy) });
@@ -364,7 +366,100 @@ export function buildRoomLevel(world, room) {
     mobs.push({ x: s.x, y: s.y, kind: rng.pick(pool), level: clamp(1 + Math.floor(room.depth / 3), 1, 4) });
   }
 
+  // --- 最後に「ちゃんと歩いて行けるか」を たしかめて、ふさがっていたら あける ---
+  const targets = [];
+  for (const dir of Object.keys(gateways)) {
+    const gw = gateways[dir];
+    targets.push({ x: gw.x, y: gw.y });
+    const [dx, dy] = DV[dir];
+    targets.push({ x: clamp(gw.x - dx * 2, 0, W - 1), y: clamp(gw.y - dy * 2, 0, H - 1) });
+  }
+  for (const sp of Object.values(spots)) if (sp) targets.push({ x: sp.x, y: sp.y, thing: true });
+  for (const m of mobs) targets.push({ x: m.x, y: m.y });
+  ensureConnected(lv, Math.round(cx), Math.round(cy), targets);
+
   return { level: lv, gateways, spots, mobs, buildings, w: W, h: H, center: { x: cx * 16, y: cy * 16 } };
+}
+
+/** 消してはいけないもの（消すと 遊びが 成り立たなくなる）*/
+const KEEP = new Set([O.SIGN, O.CAVE, O.CHEST, O.CHEST_OPEN, O.DOOR, O.GATE, O.CAGE,
+  O.RELIC, O.PORTAL, O.VENDING, O.SHRINE, O.GATEWAY, O.EXIT, O.STAIRS, O.PILLAR]);
+
+/**
+ * まんなかから すべての 大事な場所へ 歩いて行けるか たしかめ、
+ * ふさがっていたら 一直線に 道を あける。
+ * 「詰まって動けない」を 生成の段階で つぶすための 最後の関門。
+ */
+function ensureConnected(lv, cxT, cyT, targets) {
+  const W = lv.w, H = lv.h;
+  const walk = (x, y) => lv.inb(x, y) && !lv.solid(x, y);
+
+  const openTile = (x, y, allowVoid) => {
+    if (!lv.inb(x, y)) return;
+    const ob = lv.o(x, y);
+    if (ob !== O.NONE && !KEEP.has(ob)) lv.setO(x, y, O.NONE);
+    const gr = lv.g(x, y);
+    if (gr === T.WATER || gr === T.DEEP) lv.setG(x, y, T.MOSS);
+    if (allowVoid && lv.g(x, y) === T.VOID) lv.setG(x, y, T.PATH);
+  };
+
+  const reach = () => {
+    const seen = new Uint8Array(W * H);
+    let sx = cxT, sy = cyT;
+    if (!walk(sx, sy)) {                       // まんなかが ふさがっていたら あける
+      openTile(sx, sy, false);
+      if (!walk(sx, sy)) {
+        let found = null;
+        for (let r = 1; r <= 4 && !found; r++)
+          for (let oy = -r; oy <= r && !found; oy++)
+            for (let ox = -r; ox <= r && !found; ox++)
+              if (walk(sx + ox, sy + oy)) found = { x: sx + ox, y: sy + oy };
+        if (!found) return seen;
+        sx = found.x; sy = found.y;
+      }
+    }
+    const q = [sx + sy * W];
+    seen[sx + sy * W] = 1;
+    while (q.length) {
+      const i = q.pop(), x = i % W, y = (i / W) | 0;
+      for (const [ax, ay] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+        const j = ax + ay * W;
+        if (ax < 0 || ay < 0 || ax >= W || ay >= H || seen[j] || !walk(ax, ay)) continue;
+        seen[j] = 1; q.push(j);
+      }
+    }
+    return seen;
+  };
+
+  /** 目的地から まんなかへ 向かって、じゃまなものを どけながら 進む */
+  const carve = (tx, ty, allowVoid) => {
+    let x = tx, y = ty;
+    for (let step = 0; step < W + H; step++) {
+      openTile(x, y, allowVoid);
+      // まわりも 一マスぶん ゆるめる（すれちがえる はば にする）
+      openTile(x + 1, y, false); openTile(x - 1, y, false);
+      openTile(x, y + 1, false); openTile(x, y - 1, false);
+      if (x === cxT && y === cyT) return;
+      if (Math.abs(cxT - x) > Math.abs(cyT - y)) x += Math.sign(cxT - x);
+      else y += Math.sign(cyT - y);
+    }
+  };
+
+  let seen = reach();
+  const stuck = (t) => {
+    if (t.thing) {   // 立て札などは「となりに 立てれば」よい
+      return ![[0, 1], [0, -1], [1, 0], [-1, 0]].some(([ox, oy]) =>
+        lv.inb(t.x + ox, t.y + oy) && seen[(t.x + ox) + (t.y + oy) * W]);
+    }
+    return !seen[t.x + t.y * W];
+  };
+  for (const pass of [false, true]) {           // まず 物と水だけ、それでも だめなら 地面も
+    for (const t of targets) {
+      if (!lv.inb(t.x, t.y) || !stuck(t)) continue;
+      carve(t.x, t.y, pass);
+      seen = reach();
+    }
+  }
 }
 
 const MOB_POOL = {

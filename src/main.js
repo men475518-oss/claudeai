@@ -220,6 +220,20 @@ function continueGame() {
 
 export function currentRoom() { return g.world.rooms.get(g.roomId); }
 
+/** そこに立てないなら、いちばん近い 立てる場所を さがす */
+function freeSpotNear(lv, px, py, hw, hh) {
+  if (!lv.hits(px, py, hw, hh)) return { x: px, y: py };
+  for (let r = 6; r <= 96; r += 6) {
+    for (let i = 0; i < 24; i++) {
+      const a = (i / 24) * Math.PI * 2;
+      const nx = px + Math.cos(a) * r, ny = py + Math.sin(a) * r;
+      if (nx < 4 || ny < 4 || nx > lv.w * TILE - 4 || ny > lv.h * TILE - 4) continue;
+      if (!lv.hits(nx, ny, hw, hh)) return { x: nx, y: ny };
+    }
+  }
+  return { x: px, y: py };
+}
+
 function roomBuild(roomId) {
   let b = g.rooms[roomId];
   if (!b) {
@@ -275,6 +289,9 @@ function enterLevel(id, px, py, fade = true) {
       } else if (px == null || py == null) {
         px = built.center.x; py = built.center.y + 24;
       }
+      // ものの上に 立たせない（立つと 動けなくなる）
+      const spot = freeSpotNear(built.level, px, py, g.player.hw, g.player.hh);
+      px = spot.x; py = spot.y;
       g.pendingRoom = null;
 
       // 敵は 島に入るたびに わいてくる
@@ -333,7 +350,9 @@ function enterLevel(id, px, py, fade = true) {
       px = px ?? dg.spawn.x * TILE + 8;
       py = py ?? dg.spawn.y * TILE + 8;
     }
-    g.player.x = px; g.player.y = py;
+    // どの場所へ入るときも、立てないところには 置かない
+    const ok = freeSpotNear(g.level, px, py, g.player.hw, g.player.hh);
+    g.player.x = ok.x; g.player.y = ok.y;
     g.player.kbx = g.player.kby = 0;
     g.player.spawnGuard = 0.6;
     R.snapCamera(g.player, g.level);
@@ -1375,6 +1394,7 @@ g.objectiveText = function () {
 g.ui = UIx;
 g.dev = {
   SPR,
+  roomBuild: (id) => roomBuild(id),
   enterLevel: (...a) => enterLevel(...a),
   enterRoom: (...a) => enterRoom(...a),
   travel: (d) => travel(d),

@@ -31,6 +31,12 @@ export class Entity {
   moveBy(g, dx, dy, ignoreWalls = false) {
     const lv = g.level;
     if (ignoreWalls) { this.x += dx; this.y += dy; return; }
+    // すでに 壁の中に はまっているなら、まず そこから 押し出す。
+    // （これがないと どの向きも ふさがって 永久に 動けなくなる）
+    if (lv.hits(this.x, this.y, this.hw, this.hh) && !this.unstick(lv)) {
+      this.x += dx; this.y += dy;              // 逃げ場がなければ すり抜けて 出る
+      return true;
+    }
     let moved = false;
     if (dx !== 0) {
       if (!lv.hits(this.x + dx, this.y, this.hw, this.hh)) { this.x += dx; moved = true; }
@@ -56,6 +62,22 @@ export class Entity {
     this.x = clamp(this.x, 2, lv.w * TILE - 2);
     this.y = clamp(this.y, 2, lv.h * TILE - 2);
     return moved;
+  }
+
+  /** はまってしまった時に いちばん近い すきまへ 出る。出られたら true */
+  unstick(lv) {
+    for (let r = 3; r <= 120; r += 3) {
+      let best = null, bestD = Infinity;
+      for (let i = 0; i < 16; i++) {
+        const a = (i / 16) * TAU;
+        const nx = this.x + Math.cos(a) * r, ny = this.y + Math.sin(a) * r;
+        if (lv.hits(nx, ny, this.hw, this.hh)) continue;
+        const d = r;
+        if (d < bestD) { bestD = d; best = { x: nx, y: ny }; }
+      }
+      if (best) { this.x = best.x; this.y = best.y; return true; }
+    }
+    return false;
   }
 
   applyKnockback(dt, g, ignoreWalls = false) {

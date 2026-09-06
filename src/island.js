@@ -169,6 +169,30 @@ export function rasterizeIsland(lv, shape, T) {
   }
 }
 
+/**
+ * 「ここには 物を置かない」場所。首の中と 小道のまわり。
+ * ふさぐと 通れなくなって 詰まるので、飾りも敵も ここには 置かない。
+ * 地形そのものは 変えないので 見た目は そのまま。
+ */
+export function keepClearTiles(shape, lv) {
+  const set = new Set();
+  const add = (tx, ty) => { if (lv.inb(tx, ty)) set.add(ty * lv.w + tx); };
+  for (const r of shape.corridors) {
+    const x0 = Math.floor(r.x / TILE), x1 = Math.ceil((r.x + r.w) / TILE) - 1;
+    const y0 = Math.floor(r.y / TILE), y1 = Math.ceil((r.y + r.h) / TILE) - 1;
+    for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) add(tx, ty);
+  }
+  for (const cur of shape.curves) {
+    for (let t = 0; t <= 1.001; t += 0.02) {
+      const p = quadAt(cur, t);
+      const tx = Math.floor(p.x / TILE), ty = Math.floor(p.y / TILE);
+      add(tx, ty);
+      add(tx + 1, ty); add(tx - 1, ty); add(tx, ty + 1); add(tx, ty - 1);
+    }
+  }
+  return set;
+}
+
 /** 池をあける（見た目と当たり判定の両方） */
 /** 小道からいちばん離れた 池の置き場をさがす（タイル座標）*/
 export function poolSpot(shape, rT) {
@@ -208,6 +232,9 @@ export function addPool(lv, shape, T, cxT, cyT, rT, seed) {
       const px = x * TILE + 8, py = y * TILE + 8;
       const d = Math.hypot((px - cx) / 1.15, (py - cy) * 1.15 / 1) / TILE;
       const n = (fbm(x * 0.45, y * 0.45, seed) - 0.5) * 1.1;
+      // 広場（島のまんなか）と 小道は 水にしない
+      const fromMiddle = Math.hypot(px - shape.cx, py - shape.cy) / TILE;
+      if (fromMiddle < 2.6) continue;
       if (d + n < rT && lv.g(x, y) !== T.VOID && lv.g(x, y) !== T.PATH) lv.setG(x, y, T.WATER);
     }
 }

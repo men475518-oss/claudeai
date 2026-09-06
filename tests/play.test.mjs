@@ -136,6 +136,59 @@ const clearDialogs = async () => {
     `島 ${Math.min(...gen.map(r => r.rooms))}〜${Math.max(...gen.map(r => r.rooms))} / 最長 ${Math.max(...gen.map(r => r.ms)).toFixed(0)}ms`);
 }
 
+// --- 1b. どの島にも「詰まって動けない場所」がない ------------------------------
+{
+  const r = await page.evaluate((SEEDS) => {
+    const g = window.__game;
+    const DV = { n: [0, -1], s: [0, 1], e: [1, 0], w: [-1, 0] };
+    const HW = 4.5, HH = 3.5;                    // プレイヤーの当たり
+    const out = { rooms: 0, spawnSolid: [], centerSolid: [], gate: [], thing: [] };
+    for (const seed of SEEDS) {
+      g.dev.newGame(seed);
+      for (const room of g.world.rooms.values()) {
+        const built = g.dev.roomBuild(room.id);
+        const lv = built.level;
+        out.rooms++;
+        const stand = (px, py) => !lv.hits(px, py, HW, HH);
+        const tileOk = (x, y) => lv.inb(x, y) && !lv.solid(x, y) && stand(x * 16 + 8, y * 16 + 8);
+        const cx = Math.floor(built.center.x / 16), cy = Math.floor(built.center.y / 16);
+        if (!tileOk(cx, cy)) out.centerSolid.push(`${seed}/${room.kind}`);
+        // まんなかから 歩いて行けるところ
+        const seen = new Set([cx + ',' + cy]);
+        const q = tileOk(cx, cy) ? [[cx, cy]] : [];
+        while (q.length) {
+          const [x, y] = q.pop();
+          for (const [a, b] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+            const k = a + ',' + b;
+            if (!seen.has(k) && tileOk(a, b)) { seen.add(k); q.push([a, b]); }
+          }
+        }
+        for (const dir of Object.keys(built.gateways)) {
+          const gw = built.gateways[dir];
+          const [dx, dy] = DV[dir];
+          // 入ってきたときの 立ち位置に 立てるか
+          const px = (gw.x + 0.5 - dx * 2.0) * 16, py = (gw.y + 0.5 - dy * 2.0) * 16;
+          if (!stand(px, py)) out.spawnSolid.push(`${seed}/${room.kind}/${dir}`);
+          // 門まで 歩いて行けるか
+          if (![[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].some(([ox, oy]) => seen.has((gw.x + ox) + ',' + (gw.y + oy))))
+            out.gate.push(`${seed}/${room.kind}/${dir}`);
+        }
+        for (const [name, sp] of Object.entries(built.spots)) {
+          if (!sp) continue;
+          if (![[0, 1], [0, -1], [1, 0], [-1, 0]].some(([ox, oy]) => seen.has((sp.x + ox) + ',' + (sp.y + oy))))
+            out.thing.push(`${seed}/${room.kind}/${name}`);
+        }
+      }
+    }
+    return out;
+  }, [1, 7, 42, 100, 777, 20260906, 31337, 55555]);
+  const total = r.spawnSolid.length + r.centerSolid.length + r.gate.length + r.thing.length;
+  check('どの島でも 詰まらない（立ち位置・門・大事なもの すべてに 行ける）',
+    total === 0,
+    `${r.rooms} 部屋 / 立ち位置${r.spawnSolid.length} まんなか${r.centerSolid.length} 門${r.gate.length} もの${r.thing.length}`
+    + (total ? ' ' + [...r.spawnSolid, ...r.centerSolid, ...r.gate, ...r.thing].slice(0, 4).join(' ') : ''));
+}
+
 // --- 2. あそびはじめ ---------------------------------------------------------
 await page.evaluate(() => { localStorage.clear(); window.__game.dev.newGame(20260904); });
 await wait(500);
@@ -272,6 +325,102 @@ check('新規ゲームが はじまる', await page.evaluate(() => window.__game
   });
   check('振りの途中で 連打しても 取りこぼさない', rapid >= 5, `${rapid}/6 回`);
   await page.evaluate(() => { window.__game.enemies.length = 0; });
+}
+
+// --- 2a4. 壁の中に はまっても 抜け出せる（安全網）-------------------------------
+{
+  const r = await page.evaluate(async () => {
+    const g = window.__game;
+    const sleep = (ms) => new Promise(res => setTimeout(res, ms));
+    const lv = g.level, p = g.player;
+    g.enemies.length = 0;
+    const cases = [];
+    // 1) 木の中に 埋める
+    const tx = p.tx + 1, ty = p.ty;
+    for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) lv.setO(tx + ox, ty + oy, 1); // TREE
+    p.x = tx * 16 + 8; p.y = ty * 16 + 8; p.kbx = 0; p.kby = 0;
+    const stuck0 = lv.hits(p.x, p.y, p.hw, p.hh);
+    await sleep(500);
+    cases.push({ name: '木', stuck0, out: !lv.hits(p.x, p.y, p.hw, p.hh) });
+    for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) lv.setO(tx + ox, ty + oy, 0);
+    // 2) 島の外（なにもない ところ）に 落とす
+    p.x = 6; p.y = 6;
+    const stuck1 = lv.hits(p.x, p.y, p.hw, p.hh);
+    await sleep(500);
+    cases.push({ name: '島の外', stuck1, out: !lv.hits(p.x, p.y, p.hw, p.hh) });
+    return cases;
+  });
+  check('壁の中に はまっても ひとりでに 抜け出せる',
+    r.every(c => c.out), r.map(c => `${c.name}:${c.out ? '○' : '×'}`).join(' '));
+}
+
+// --- 2a5. 全島を まわって、実際に 体を 動かして 門まで 歩けるか ------------------
+{
+  const r = await page.evaluate(async () => {
+    const g = window.__game;
+    const sleep = ms => new Promise(res => setTimeout(res, ms));
+    const bad = [];
+    let visited = 0, walks = 0;
+    const back = g.roomId;
+    for (const room of g.world.rooms.values()) {
+      g.dev.enterRoom(room.id, null, false);
+      await sleep(60);
+      visited++;
+      const p = g.player, lv = g.level;
+      g.enemies.length = 0;
+      const ok = (x, y) => lv.inb(x, y) && !lv.solid(x, y) && !lv.hits(x * 16 + 8, y * 16 + 8, p.hw, p.hh);
+      let free = 0;
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2, bx = p.x, by = p.y;
+        p.moveBy(g, Math.cos(a) * 6, Math.sin(a) * 6);
+        if (Math.hypot(p.x - bx, p.y - by) > 0.5) free++;
+        p.x = bx; p.y = by;
+      }
+      if (free === 0) bad.push(`${room.kind} 立ち位置で 動けない`);
+      const built = g.rooms[room.id];
+      for (const dir of Object.keys(built.gateways)) {
+        const gw = built.gateways[dir];
+        const start = { x: p.x, y: p.y };
+        const sx = Math.floor(p.x / 16), sy = Math.floor(p.y / 16);
+        const prev = new Map(), seen = new Set([sx + ',' + sy]), q = [[sx, sy]];
+        while (q.length) {
+          const [x, y] = q.shift();
+          for (const [a, b] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+            const k = a + ',' + b;
+            if (!seen.has(k) && ok(a, b)) { seen.add(k); prev.set(k, x + ',' + y); q.push([a, b]); }
+          }
+        }
+        if (!seen.has(gw.x + ',' + gw.y)) { bad.push(`${room.kind}/${dir} 門への 道がない`); continue; }
+        const way = []; let cur = gw.x + ',' + gw.y, guard = 0;
+        while (cur && guard++ < 900) {
+          const [a, b] = cur.split(',').map(Number);
+          way.unshift({ x: a * 16 + 8, y: b * 16 + 8 });
+          cur = prev.get(cur);
+        }
+        walks++;
+        let wi = 1, steps = 0, reached = false;
+        while (steps++ < 4000) {
+          const t = way[Math.min(wi, way.length - 1)];
+          const dx = t.x - p.x, dy = t.y - p.y, d = Math.hypot(dx, dy);
+          if (d < 5) { if (wi >= way.length - 1) { reached = true; break; } wi++; continue; }
+          const bx = p.x, by = p.y;
+          p.moveBy(g, (dx / d) * 2.0, (dy / d) * 2.0);
+          if (Math.hypot(p.x - bx, p.y - by) < 0.2) {
+            bad.push(`${room.kind}/${dir} (${(p.x / 16).toFixed(1)},${(p.y / 16).toFixed(1)}) で 詰まった`);
+            break;
+          }
+        }
+        if (!reached && steps >= 4000) bad.push(`${room.kind}/${dir} 歩ききれない`);
+        p.x = start.x; p.y = start.y;
+      }
+    }
+    g.dev.enterRoom(back, null, false);
+    await sleep(120);
+    return { visited, walks, bad };
+  });
+  check('全島を まわって、実際に歩いて 門まで たどりつける',
+    r.bad.length === 0, `${r.visited} 島 / ${r.walks} 本の道すじ` + (r.bad.length ? ' ' + r.bad.slice(0, 3).join(' ') : ''));
+  await clearDialogs();
 }
 
 // --- 2b. 島から島へ わたる ---
@@ -572,27 +721,44 @@ check('新規ゲームが はじまる', await page.evaluate(() => window.__game
   const r4 = await until(() => window.__game.enemies.some(e => e.isPart && e.state === 'planted'), 6000);
   check('ついた手は 殴れる状態になる', r4);
 
-  // 腕だけでなく、いろいろな技を 出してくるか
+  // 腕以外の技が ちゃんと 出せるか（技ごとに 直接 出させて たしかめる）
   const moves = await page.evaluate(async () => {
     const g = window.__game;
     const sleep = (ms) => new Promise(res => setTimeout(res, ms));
-    const seen = new Set();
     g.player.maxHp = 90; g.player.hp = 90; g.player.invuln = 9999;
-    for (let i = 0; i < 40; i++) {
-      g.boss.phase = 3;
-      g.boss.cd = 0;
-      await sleep(120);
+    const out = {};
+    const fire = async (name, ms) => {
+      g.hazards.length = 0;
+      for (const e of g.enemies) if (!e.isPart) e.dead = true;
+      g.boss.phase = 3; g.boss.state = 'idle'; g.boss.lunge = null;
+      g.boss['start' + name](g);
+      await sleep(ms);
+      return { hz: [...new Set(g.hazards.map(h => h.kind))], mob: g.enemies.filter(e => !e.isPart && !e.dead).length };
+    };
+    out.gaze = await fire('Gaze', 260);
+    out.spikes = await fire('Spikes', 200);
+    out.wave = await fire('Wave', 200);
+    out.call = await fire('Call', 200);
+    g.hazards.length = 0;
+    for (const e of g.enemies) if (!e.isPart) e.dead = true;
+    // ふつうに 戦っていても 腕以外が まざるか
+    const seen = new Set();
+    for (let i = 0; i < 26; i++) {
+      g.boss.phase = 3; g.boss.cd = 0;
+      await sleep(90);
       if (g.boss.lastMove) seen.add(g.boss.lastMove);
-      for (const h of g.hazards) seen.add('hz:' + h.kind);
-      if (g.enemies.some(e => !e.isPart)) seen.add('minion');
     }
     g.hazards.length = 0;
     for (const e of g.enemies) if (!e.isPart) e.dead = true;
-    return [...seen];
+    out.natural = [...seen];
+    return out;
   });
   const armless = ['gaze', 'spikes', 'wave', 'call', 'spit', 'daggers'];
+  const ok = moves.gaze.hz.includes('beam') && moves.spikes.hz.includes('spike')
+    && moves.wave.hz.includes('wave') && moves.call.mob > 0
+    && armless.filter(m => moves.natural.includes(m)).length >= 2;
   check('ボスは 手を たたきつける以外の技も 出してくる',
-    armless.filter(m => moves.includes(m)).length >= 4, moves.join(' '));
+    ok, `にらみ${moves.gaze.hz} とげ${moves.spikes.hz} うなり${moves.wave.hz} よびよせ${moves.call.mob}体 / ${moves.natural.join(' ')}`);
 
   const r5 = await page.evaluate(async () => {
     const g = window.__game;

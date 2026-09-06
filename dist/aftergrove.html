@@ -2820,6 +2820,30 @@ function rasterizeIsland(lv, shape, T) {
   }
 }
 
+/**
+ * 「ここには 物を置かない」場所。首の中と 小道のまわり。
+ * ふさぐと 通れなくなって 詰まるので、飾りも敵も ここには 置かない。
+ * 地形そのものは 変えないので 見た目は そのまま。
+ */
+function keepClearTiles(shape, lv) {
+  const set = new Set();
+  const add = (tx, ty) => { if (lv.inb(tx, ty)) set.add(ty * lv.w + tx); };
+  for (const r of shape.corridors) {
+    const x0 = Math.floor(r.x / TILE), x1 = Math.ceil((r.x + r.w) / TILE) - 1;
+    const y0 = Math.floor(r.y / TILE), y1 = Math.ceil((r.y + r.h) / TILE) - 1;
+    for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) add(tx, ty);
+  }
+  for (const cur of shape.curves) {
+    for (let t = 0; t <= 1.001; t += 0.02) {
+      const p = quadAt(cur, t);
+      const tx = Math.floor(p.x / TILE), ty = Math.floor(p.y / TILE);
+      add(tx, ty);
+      add(tx + 1, ty); add(tx - 1, ty); add(tx, ty + 1); add(tx, ty - 1);
+    }
+  }
+  return set;
+}
+
 /** 池をあける（見た目と当たり判定の両方） */
 /** 小道からいちばん離れた 池の置き場をさがす（タイル座標）*/
 function poolSpot(shape, rT) {
@@ -2859,6 +2883,9 @@ function addPool(lv, shape, T, cxT, cyT, rT, seed) {
       const px = x * TILE + 8, py = y * TILE + 8;
       const d = Math.hypot((px - cx) / 1.15, (py - cy) * 1.15 / 1) / TILE;
       const n = (fbm(x * 0.45, y * 0.45, seed) - 0.5) * 1.1;
+      // 広場（島のまんなか）と 小道は 水にしない
+      const fromMiddle = Math.hypot(px - shape.cx, py - shape.cy) / TILE;
+      if (fromMiddle < 2.6) continue;
       if (d + n < rT && lv.g(x, y) !== T.VOID && lv.g(x, y) !== T.PATH) lv.setG(x, y, T.WATER);
     }
 }
@@ -3097,13 +3124,13 @@ function blobPath(c, x, y, r, seed, sx = 1, sy = 1) {
 }
 
 
-return { makeIslandShape, rasterizeIsland, poolSpot, addPool, renderIslandCanvas, pointInPoly };
+return { makeIslandShape, rasterizeIsland, keepClearTiles, poolSpot, addPool, renderIslandCanvas, pointInPoly };
 })();
 
 const __M_rooms = (function () {
 const { Level, T, O, BUILDINGS, applyBuildings } = __M_world;
 const { makeRng, clamp } = __M_util;
-const { makeIslandShape, rasterizeIsland, addPool, poolSpot } = __M_island;
+const { makeIslandShape, rasterizeIsland, addPool, poolSpot, keepClearTiles } = __M_island;
 // ---------------------------------------------------------------------------
 // rooms.js — 世界は「小さな島」がいくつも つながった かたち
 //   ひとつの島がひとつの画面。端の小道から となりの島へ移る。
@@ -3363,7 +3390,7 @@ function buildRoomLevel(world, room) {
   if (flat) {
     buildings = world.buildings.filter(b => b.roomId === room.id);
     const plots = room.kind === 'home'
-      ? [{ dx: -2, dy: -5, w: 4, h: 3 }]
+      ? [{ dx: -4, dy: -5, w: 4, h: 3 }]
       : [{ dx: -6, dy: -6, w: 4, h: 3 }, { dx: -1, dy: -7, w: 4, h: 3 }, { dx: 3, dy: -5, w: 4, h: 3 },
          { dx: -6, dy: -1, w: 4, h: 3 }, { dx: 2, dy: 0, w: 4, h: 3 }, { dx: -3, dy: 4, w: 4, h: 3 }];
     buildings.forEach((b, i) => {
@@ -3376,11 +3403,13 @@ function buildRoomLevel(world, room) {
   }
 
   // --- 中身 ---
+  // 首の中と 小道のまわりは あけておく（ふさぐと 通れなくなる）
+  const keepClear = keepClearTiles(shape, lv);
   const free = [];
   for (let y = 2; y < H - 2; y++)
     for (let x = 1; x < W - 1; x++) {
       if (!isGround(x, y) || lv.o(x, y) !== O.NONE) continue;
-      if (lv.g(x, y) === T.PATH) continue;
+      if (lv.g(x, y) === T.PATH || keepClear.has(y * W + x)) continue;
       // ふちギリギリに置くと 絵が島から はみ出して見える
       if (!isGround(x - 1, y) || !isGround(x + 1, y)
         || !isGround(x, y - 1) || !isGround(x, y + 1)) continue;
@@ -3393,7 +3422,7 @@ function buildRoomLevel(world, room) {
     for (let y = 1; y < H - 1; y++)
       for (let x = 1; x < W - 1; x++) {
         if (!isGround(x, y) || lv.o(x, y) !== O.NONE) continue;
-        if (lv.g(x, y) === T.PATH) continue;
+        if (lv.g(x, y) === T.PATH || keepClear.has(y * W + x)) continue;
         if (Math.hypot(x - cx, y - cy) < 2.2) continue;
         if (free.some(f => f.x === x && f.y === y)) continue;
         free.push({ x, y, d: Math.hypot(x - cx, y - cy) });
@@ -3467,7 +3496,100 @@ function buildRoomLevel(world, room) {
     mobs.push({ x: s.x, y: s.y, kind: rng.pick(pool), level: clamp(1 + Math.floor(room.depth / 3), 1, 4) });
   }
 
+  // --- 最後に「ちゃんと歩いて行けるか」を たしかめて、ふさがっていたら あける ---
+  const targets = [];
+  for (const dir of Object.keys(gateways)) {
+    const gw = gateways[dir];
+    targets.push({ x: gw.x, y: gw.y });
+    const [dx, dy] = DV[dir];
+    targets.push({ x: clamp(gw.x - dx * 2, 0, W - 1), y: clamp(gw.y - dy * 2, 0, H - 1) });
+  }
+  for (const sp of Object.values(spots)) if (sp) targets.push({ x: sp.x, y: sp.y, thing: true });
+  for (const m of mobs) targets.push({ x: m.x, y: m.y });
+  ensureConnected(lv, Math.round(cx), Math.round(cy), targets);
+
   return { level: lv, gateways, spots, mobs, buildings, w: W, h: H, center: { x: cx * 16, y: cy * 16 } };
+}
+
+/** 消してはいけないもの（消すと 遊びが 成り立たなくなる）*/
+const KEEP = new Set([O.SIGN, O.CAVE, O.CHEST, O.CHEST_OPEN, O.DOOR, O.GATE, O.CAGE,
+  O.RELIC, O.PORTAL, O.VENDING, O.SHRINE, O.GATEWAY, O.EXIT, O.STAIRS, O.PILLAR]);
+
+/**
+ * まんなかから すべての 大事な場所へ 歩いて行けるか たしかめ、
+ * ふさがっていたら 一直線に 道を あける。
+ * 「詰まって動けない」を 生成の段階で つぶすための 最後の関門。
+ */
+function ensureConnected(lv, cxT, cyT, targets) {
+  const W = lv.w, H = lv.h;
+  const walk = (x, y) => lv.inb(x, y) && !lv.solid(x, y);
+
+  const openTile = (x, y, allowVoid) => {
+    if (!lv.inb(x, y)) return;
+    const ob = lv.o(x, y);
+    if (ob !== O.NONE && !KEEP.has(ob)) lv.setO(x, y, O.NONE);
+    const gr = lv.g(x, y);
+    if (gr === T.WATER || gr === T.DEEP) lv.setG(x, y, T.MOSS);
+    if (allowVoid && lv.g(x, y) === T.VOID) lv.setG(x, y, T.PATH);
+  };
+
+  const reach = () => {
+    const seen = new Uint8Array(W * H);
+    let sx = cxT, sy = cyT;
+    if (!walk(sx, sy)) {                       // まんなかが ふさがっていたら あける
+      openTile(sx, sy, false);
+      if (!walk(sx, sy)) {
+        let found = null;
+        for (let r = 1; r <= 4 && !found; r++)
+          for (let oy = -r; oy <= r && !found; oy++)
+            for (let ox = -r; ox <= r && !found; ox++)
+              if (walk(sx + ox, sy + oy)) found = { x: sx + ox, y: sy + oy };
+        if (!found) return seen;
+        sx = found.x; sy = found.y;
+      }
+    }
+    const q = [sx + sy * W];
+    seen[sx + sy * W] = 1;
+    while (q.length) {
+      const i = q.pop(), x = i % W, y = (i / W) | 0;
+      for (const [ax, ay] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+        const j = ax + ay * W;
+        if (ax < 0 || ay < 0 || ax >= W || ay >= H || seen[j] || !walk(ax, ay)) continue;
+        seen[j] = 1; q.push(j);
+      }
+    }
+    return seen;
+  };
+
+  /** 目的地から まんなかへ 向かって、じゃまなものを どけながら 進む */
+  const carve = (tx, ty, allowVoid) => {
+    let x = tx, y = ty;
+    for (let step = 0; step < W + H; step++) {
+      openTile(x, y, allowVoid);
+      // まわりも 一マスぶん ゆるめる（すれちがえる はば にする）
+      openTile(x + 1, y, false); openTile(x - 1, y, false);
+      openTile(x, y + 1, false); openTile(x, y - 1, false);
+      if (x === cxT && y === cyT) return;
+      if (Math.abs(cxT - x) > Math.abs(cyT - y)) x += Math.sign(cxT - x);
+      else y += Math.sign(cyT - y);
+    }
+  };
+
+  let seen = reach();
+  const stuck = (t) => {
+    if (t.thing) {   // 立て札などは「となりに 立てれば」よい
+      return ![[0, 1], [0, -1], [1, 0], [-1, 0]].some(([ox, oy]) =>
+        lv.inb(t.x + ox, t.y + oy) && seen[(t.x + ox) + (t.y + oy) * W]);
+    }
+    return !seen[t.x + t.y * W];
+  };
+  for (const pass of [false, true]) {           // まず 物と水だけ、それでも だめなら 地面も
+    for (const t of targets) {
+      if (!lv.inb(t.x, t.y) || !stuck(t)) continue;
+      carve(t.x, t.y, pass);
+      seen = reach();
+    }
+  }
 }
 
 const MOB_POOL = {
@@ -4083,6 +4205,12 @@ class Entity {
   moveBy(g, dx, dy, ignoreWalls = false) {
     const lv = g.level;
     if (ignoreWalls) { this.x += dx; this.y += dy; return; }
+    // すでに 壁の中に はまっているなら、まず そこから 押し出す。
+    // （これがないと どの向きも ふさがって 永久に 動けなくなる）
+    if (lv.hits(this.x, this.y, this.hw, this.hh) && !this.unstick(lv)) {
+      this.x += dx; this.y += dy;              // 逃げ場がなければ すり抜けて 出る
+      return true;
+    }
     let moved = false;
     if (dx !== 0) {
       if (!lv.hits(this.x + dx, this.y, this.hw, this.hh)) { this.x += dx; moved = true; }
@@ -4108,6 +4236,22 @@ class Entity {
     this.x = clamp(this.x, 2, lv.w * TILE - 2);
     this.y = clamp(this.y, 2, lv.h * TILE - 2);
     return moved;
+  }
+
+  /** はまってしまった時に いちばん近い すきまへ 出る。出られたら true */
+  unstick(lv) {
+    for (let r = 3; r <= 120; r += 3) {
+      let best = null, bestD = Infinity;
+      for (let i = 0; i < 16; i++) {
+        const a = (i / 16) * TAU;
+        const nx = this.x + Math.cos(a) * r, ny = this.y + Math.sin(a) * r;
+        if (lv.hits(nx, ny, this.hw, this.hh)) continue;
+        const d = r;
+        if (d < bestD) { bestD = d; best = { x: nx, y: ny }; }
+      }
+      if (best) { this.x = best.x; this.y = best.y; return true; }
+    }
+    return false;
   }
 
   applyKnockback(dt, g, ignoreWalls = false) {
@@ -8138,6 +8282,20 @@ function continueGame() {
 
 function currentRoom() { return g.world.rooms.get(g.roomId); }
 
+/** そこに立てないなら、いちばん近い 立てる場所を さがす */
+function freeSpotNear(lv, px, py, hw, hh) {
+  if (!lv.hits(px, py, hw, hh)) return { x: px, y: py };
+  for (let r = 6; r <= 96; r += 6) {
+    for (let i = 0; i < 24; i++) {
+      const a = (i / 24) * Math.PI * 2;
+      const nx = px + Math.cos(a) * r, ny = py + Math.sin(a) * r;
+      if (nx < 4 || ny < 4 || nx > lv.w * TILE - 4 || ny > lv.h * TILE - 4) continue;
+      if (!lv.hits(nx, ny, hw, hh)) return { x: nx, y: ny };
+    }
+  }
+  return { x: px, y: py };
+}
+
 function roomBuild(roomId) {
   let b = g.rooms[roomId];
   if (!b) {
@@ -8193,6 +8351,9 @@ function enterLevel(id, px, py, fade = true) {
       } else if (px == null || py == null) {
         px = built.center.x; py = built.center.y + 24;
       }
+      // ものの上に 立たせない（立つと 動けなくなる）
+      const spot = freeSpotNear(built.level, px, py, g.player.hw, g.player.hh);
+      px = spot.x; py = spot.y;
       g.pendingRoom = null;
 
       // 敵は 島に入るたびに わいてくる
@@ -8251,7 +8412,9 @@ function enterLevel(id, px, py, fade = true) {
       px = px ?? dg.spawn.x * TILE + 8;
       py = py ?? dg.spawn.y * TILE + 8;
     }
-    g.player.x = px; g.player.y = py;
+    // どの場所へ入るときも、立てないところには 置かない
+    const ok = freeSpotNear(g.level, px, py, g.player.hw, g.player.hh);
+    g.player.x = ok.x; g.player.y = ok.y;
     g.player.kbx = g.player.kby = 0;
     g.player.spawnGuard = 0.6;
     R.snapCamera(g.player, g.level);
@@ -9293,6 +9456,7 @@ g.objectiveText = function () {
 g.ui = UIx;
 g.dev = {
   SPR,
+  roomBuild: (id) => roomBuild(id),
   enterLevel: (...a) => enterLevel(...a),
   enterRoom: (...a) => enterRoom(...a),
   travel: (d) => travel(d),
